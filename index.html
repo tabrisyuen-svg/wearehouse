@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>倉庫查貨</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Microsoft JhengHei","Noto Sans TC",sans-serif;background:#f4f5f7;color:#222}
+  header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#1f2937;color:#fff;flex-wrap:wrap;gap:8px}
+  header h1{font-size:18px;margin:0}
+  .status{font-size:13px;display:flex;align-items:center;gap:8px}
+  button{cursor:pointer;border:0;border-radius:6px;padding:8px 14px;font-size:14px;background:#2563eb;color:#fff}
+  button.sec{background:#e5e7eb;color:#222}
+  main{display:grid;grid-template-columns:340px 1fr;gap:12px;padding:12px}
+  @media(max-width:900px){main{grid-template-columns:1fr}}
+  .panel{background:#fff;border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .panel h2{font-size:15px;margin:0 0 10px}
+  .tabs{display:flex;gap:6px;margin-bottom:10px}
+  .tabs button{background:#e5e7eb;color:#222;flex:1}
+  .tabs button.active{background:#2563eb;color:#fff}
+  input,textarea{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;font-size:15px}
+  textarea{min-height:120px;font-family:monospace}
+  #results{margin-top:8px;max-height:320px;overflow:auto}
+  .res{padding:8px;border-bottom:1px solid #eee;cursor:pointer;font-size:14px}
+  .res:hover{background:#eff6ff}
+  .res b{color:#2563eb}
+  .loc{display:inline-block;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;padding:0 6px;font-weight:bold;font-family:monospace}
+  .dim{color:#9ca3af;font-size:12px}
+  .err{background:#fee2e2;color:#991b1b;padding:10px;border-radius:6px;font-size:13px;white-space:pre-wrap}
+
+  /* 平面圖 */
+  .mapwrap{overflow:auto}
+  .map{display:grid;grid-template-columns:34px 72px repeat(18,46px);grid-template-rows:52px 26px 62px 62px 44px 50px 50px 26px 50px;gap:2px;width:max-content;padding:4px;background:#fafafa}
+  .map div{display:flex;align-items:center;justify-content:center;font-size:13px;border-radius:3px;position:relative}
+  .aisle{background:#a3a3a3}
+  .area{font-size:12px}
+  .office{background:#fde7c8}.display{background:#d9d4ea}
+  .rack{background:#fff;border:1px solid #cbd5e1;cursor:pointer;font-weight:600}
+  .rack:hover{border-color:#2563eb}
+  .rack.hit{background:#f59e0b;color:#fff;border-color:#b45309;box-shadow:0 0 0 3px #fcd34d}
+  .rack.onroute{background:#dbeafe;border-color:#2563eb}
+  .badge{position:absolute;top:-8px;right:-6px;background:#dc2626;color:#fff;border-radius:10px;font-size:11px;padding:1px 6px;font-weight:bold;line-height:16px}
+  .door{font-weight:bold;color:#dc2626;font-size:12px;writing-mode:vertical-rl}
+
+  /* 直立貨架 */
+  .rackview{display:flex;gap:14px;flex-wrap:wrap}
+  .rackcol{width:200px;border:3px solid #374151;border-radius:6px;overflow:hidden}
+  .cell{min-height:64px;border-bottom:3px solid #374151;padding:6px;display:flex;flex-direction:column;gap:4px}
+  .cell:last-child{border-bottom:0}
+  .cell .lv{font-size:12px;color:#6b7280}
+  .cell.focus{background:#fef3c7}
+  .cell.dead{background:repeating-linear-gradient(45deg,#e5e7eb 0 6px,#f3f4f6 6px 12px);color:#9ca3af}
+  .skus{display:flex;flex-wrap:wrap;gap:4px}
+  .tag{background:#e5e7eb;border-radius:4px;padding:1px 6px;font-size:12px;cursor:pointer;font-family:monospace}
+  .tag.hot{background:#f59e0b;color:#fff;font-weight:bold}
+  .detail{flex:1;min-width:240px;font-size:14px}
+  .detail table{border-collapse:collapse;width:100%}
+  .detail td{padding:5px 6px;border-bottom:1px solid #eee}
+  .detail td:first-child{color:#6b7280;width:90px}
+  .total{font-size:22px;font-weight:bold;color:#2563eb}
+  ol.route{padding-left:22px;margin:10px 0 0;font-size:14px}
+  ol.route li{padding:6px 0;border-bottom:1px solid #eee}
+  .miss{color:#dc2626}
+</style>
+</head>
+<body>
+<header>
+  <h1>📦 倉庫查貨</h1>
+  <div class="status"><span id="updated">載入中…</span><button class="sec" id="refresh">↻ 重新整理</button></div>
+</header>
+
+<main>
+  <section class="panel">
+    <div class="tabs">
+      <button class="active" data-tab="single">查單一 SKU</button>
+      <button data-tab="multi">多 SKU 揀貨</button>
+    </div>
+    <div id="tab-single">
+      <input id="q" placeholder="輸入 SKU 或名稱（例：E0204、泰迪）" autocomplete="off">
+      <div id="results"></div>
+    </div>
+    <div id="tab-multi" hidden>
+      <textarea id="multi" placeholder="每行一個 SKU，可加數量：&#10;E0204 5&#10;E0301 2"></textarea>
+      <button id="route" style="margin-top:8px;width:100%">產生揀貨路線</button>
+      <ol class="route" id="routeList"></ol>
+    </div>
+    <div id="msg"></div>
+  </section>
+
+  <!-- 貨架：移到右上（原平面圖位置） -->
+  <section class="panel">
+    <h2 id="rackTitle">貨架 <span class="dim">— 請先搜尋或點平面圖</span></h2>
+    <div class="rackview"><div id="rackView"></div><div class="detail" id="detail"></div></div>
+  </section>
+
+  <!-- 平面圖：移到下方，橫跨全寬 -->
+  <section class="panel" style="grid-column:1 / -1">
+    <h2>平面圖 <span class="dim">（點貨架可看內容）</span></h2>
+    <div class="mapwrap"><div class="map" id="map"></div></div>
+  </section>
+</main>
+
+<script>
+/* ========== 設定 ========== */
+const CONFIG = {
+  SHEET_ID: '1JOMffFPWW0ZLo42hY2KjCSBOQBr5s5W-kBUw_W_rU1M',
+  SHEET_NAME: '工作表1',
+  API_KEY: '',            // 填入 Google API 金鑰 → 幾秒內更新；留空 → 用公開 CSV（可能延遲數分鐘）
+  MAX_LEVELS: 4,          // 直立圖固定畫 4 格
+  DEFAULT_LEVELS: 4,      // Sheet 沒填「行總層數」時的預設
+  ROW_LEVELS_FALLBACK: { O: 3, P: 3, Q: 3 },
+};
+
+/* 平面圖：c=欄 r=列 w=跨欄 h=跨列 */
+const LAYOUT = [
+  {t:'area',cls:'office',label:'Office 區',c:2,r:1},
+  {t:'area',cls:'display',label:'Display 區',c:2,r:3,h:2},
+  {t:'door',label:'門口 ▶',c:1,r:5},
+  {t:'rack',id:'A3',c:3,r:1},{t:'rack',id:'A2',c:3,r:3},{t:'rack',id:'A1',c:3,r:4},
+  {t:'rack',id:'M1',c:4,r:1,w:3},{t:'rack',id:'N1',c:7,r:1,w:3},{t:'rack',id:'N2',c:10,r:1,w:3},
+  {t:'rack',id:'N3',c:13,r:1,w:3},{t:'rack',id:'N4',c:16,r:1,w:3},
+  {t:'rack',id:'L4',c:20,r:1,h:2},{t:'rack',id:'L3',c:20,r:3},{t:'rack',id:'L2',c:20,r:4},{t:'rack',id:'L1',c:20,r:5,h:2},
+  {t:'aisle',c:4,r:2,w:16},                       // 上橫向走道
+  ...[4,7,10,13,16,19].map(c=>({t:'aisle',c,r:3,h:2})), // 縱向走道
+  {t:'rack',id:'B2',c:5,r:3},{t:'rack',id:'C2',c:6,r:3},{t:'rack',id:'D2',c:8,r:3},{t:'rack',id:'E2',c:9,r:3},
+  {t:'rack',id:'F2',c:11,r:3},{t:'rack',id:'G2',c:12,r:3},{t:'rack',id:'H2',c:14,r:3},{t:'rack',id:'I2',c:15,r:3},
+  {t:'rack',id:'J2',c:17,r:3},{t:'rack',id:'K2',c:18,r:3},
+  {t:'rack',id:'B1',c:5,r:4},{t:'rack',id:'C1',c:6,r:4},{t:'rack',id:'D1',c:8,r:4},{t:'rack',id:'E1',c:9,r:4},
+  {t:'rack',id:'F1',c:11,r:4},{t:'rack',id:'G1',c:12,r:4},{t:'rack',id:'H1',c:14,r:4},{t:'rack',id:'I1',c:15,r:4},
+  {t:'rack',id:'J1',c:17,r:4},{t:'rack',id:'K1',c:18,r:4},
+  {t:'aisle',c:4,r:5,w:16},                       // 主走道
+  {t:'aisle',c:8,r:6,w:2,h:2},                    // O1 左側走道
+  {t:'rack',id:'O1',c:10,r:6,w:3},{t:'rack',id:'O2',c:13,r:6,w:3},{t:'rack',id:'Q1',label:'Q',c:16,r:6,h:2},
+  {t:'rack',id:'P1',c:10,r:7,w:3},{t:'rack',id:'P2',c:13,r:7,w:3},
+  {t:'aisle',c:17,r:6,w:3,h:2},                   // Q 右側走道
+  {t:'aisle',c:6,r:8,w:14},                       // 底部走道
+  {t:'rack',id:'R1',c:6,r:9,w:4},{t:'rack',id:'R2',c:10,r:9,w:3},{t:'rack',id:'R3',c:13,r:9,w:3},{t:'rack',id:'R4',c:16,r:9,w:3},
+];
+
+/* 揀貨走訪順序（從門口出發，可自行調整） */
+const PICK_ORDER = ['A1','B1','C1','D1','E1','F1','G1','H1','I1','J1','K1','L2','L1','L3','L4',
+  'N4','K2','J2','N3','I2','H2','N2','G2','F2','N1','E2','D2','M1','C2','B2','A2','A3',
+  'O1','O2','Q1','P2','P1','R1','R2','R3','R4'];
+
+/* ========== 資料 ========== */
+let DATA = [], LEVELS = {};
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const num = v => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return isNaN(n) ? 0 : n; };
+
+async function fetchRows() {
+  if (CONFIG.API_KEY) {
+    const u = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${encodeURIComponent(CONFIG.SHEET_NAME)}?key=${CONFIG.API_KEY}`;
+    const r = await fetch(u); if (!r.ok) throw new Error('Sheets API ' + r.status + '：檢查 API 金鑰 / Sheet 是否設為「知道連結的人可檢視」');
+    return (await r.json()).values || [];
+  }
+  const u = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.SHEET_NAME)}&t=${Date.now()}`;
+  const r = await fetch(u); if (!r.ok) throw new Error('讀取失敗 ' + r.status + '：Sheet 需設為「知道連結的人可檢視」');
+  return parseCSV(await r.text());
+}
+function parseCSV(t) {
+  const rows = [], row = []; let f = '', q = false, cur = [];
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (q) { if (c === '"') { if (t[i+1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { cur.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && t[i+1] === '\n') i++; cur.push(f); rows.push(cur); cur = []; f = ''; }
+    else f += c;
+  }
+  if (f || cur.length) { cur.push(f); rows.push(cur); }
+  return rows.filter(r => r.some(x => x !== ''));
+}
+function normalize(rows) {
+  const H = rows[0].map(h => String(h).trim());
+  const find = (...names) => { for (const n of names) { const i = H.indexOf(n); if (i >= 0) return i; } return H.findIndex(h => names.some(n => h.includes(n))); };
+  const C = { sku: find('SKU'), name: find('名稱'), box: find('箱數'), perBox: find('一箱總件數'), pack: find('盒數'),
+    perPack: find('一盒總件數'), loose: find('散件數量'), row: find('行'), levels: find('行總層數', '總層數'),
+    rack: find('架'), level: find('層'), note: find('備註') };
+  LEVELS = {}; const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i], g = k => C[k] >= 0 ? String(r[C[k]] ?? '').trim() : '';
+    const sku = g('sku'); if (!sku) continue;
+    const row = g('row').toUpperCase(), rack = parseInt(num(g('rack'))) || 1, level = parseInt(num(g('level'))) || 0;
+    const box = num(g('box')), perBox = num(g('perBox')), pack = num(g('pack')), perPack = num(g('perPack')), loose = num(g('loose'));
+    const lv = parseInt(num(g('levels'))); if (row && lv > 0 && !LEVELS[row]) LEVELS[row] = lv;
+    out.push({ sku, name: g('name'), box, perBox, pack, perPack, loose, total: box*perBox + pack*perPack + loose,
+      row, rack, level, note: g('note'), rackId: row + rack, loc: `${row}-${rack}-${level}` });
+  }
+  return out;
+}
+const levelsOf = row => LEVELS[row] || CONFIG.ROW_LEVELS_FALLBACK[row] || CONFIG.DEFAULT_LEVELS;
+
+async function load() {
+  $('#updated').textContent = '載入中…'; $('#msg').innerHTML = '';
+  try {
+    DATA = normalize(await fetchRows());
+    $('#updated').textContent = `資料更新：${new Date().toLocaleTimeString('zh-TW')}　共 ${DATA.length} 筆`;
+    if ($('#q').value) search();
+  } catch (e) { $('#updated').textContent = '載入失敗'; $('#msg').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+
+/* ========== 平面圖 ========== */
+function buildMap() {
+  const m = $('#map'); m.innerHTML = '';
+  for (const it of LAYOUT) {
+    const d = document.createElement('div');
+    d.style.gridColumn = `${it.c} / span ${it.w || 1}`; d.style.gridRow = `${it.r} / span ${it.h || 1}`;
+    if (it.t === 'aisle') d.className = 'aisle';
+    else if (it.t === 'area') { d.className = 'area ' + it.cls; d.textContent = it.label; }
+    else if (it.t === 'door') { d.className = 'door'; d.textContent = it.label; }
+    else { d.className = 'rack'; d.dataset.id = it.id; d.textContent = it.label || it.id; d.onclick = () => showRack(it.id); }
+    m.appendChild(d);
+  }
+}
+function clearMap() { document.querySelectorAll('.rack').forEach(r => { r.classList.remove('hit', 'onroute'); r.querySelector('.badge')?.remove(); }); }
+function markRack(id, badge) {
+  const el = document.querySelector(`.rack[data-id="${id}"]`); if (!el) return;
+  if (badge != null) { el.classList.add('onroute'); let b = el.querySelector('.badge'); if (!b) { b = document.createElement('span'); b.className = 'badge'; el.appendChild(b); } b.textContent = b.textContent ? b.textContent + ',' + badge : badge; }
+  else el.classList.add('hit');
+}
+
+/* ========== 直立貨架 + 明細 ========== */
+function showRack(rackId, focusLevel, focusSku) {
+  const row = rackId.replace(/\d+$/, ''), n = levelsOf(row), items = DATA.filter(d => d.rackId === rackId);
+  const label = LAYOUT.find(l => l.id === rackId)?.label || rackId;
+  $('#rackTitle').innerHTML = `貨架 <span class="loc">${esc(label)}</span> <span class="dim">${n} 層（第 1 層最上、第 ${n} 層地面）</span>`;
+  let h = '<div class="rackcol">';
+  for (let l = 1; l <= CONFIG.MAX_LEVELS; l++) {
+    if (l > n) { h += `<div class="cell dead"><span class="lv">—</span><span class="dim">無此層</span></div>`; continue; }
+    const here = items.filter(d => d.level === l);
+    h += `<div class="cell ${l === focusLevel ? 'focus' : ''}"><span class="lv">第 ${l} 層${l === n ? '（地面）' : ''}</span><div class="skus">${
+      here.map(d => `<span class="tag ${d.sku === focusSku ? 'hot' : ''}" data-loc="${esc(d.loc)}" data-sku="${esc(d.sku)}">${esc(d.sku)}</span>`).join('') || '<span class="dim">空</span>'}</div></div>`;
+  }
+  $('#rackView').innerHTML = h + '</div>';
+  $('#rackView').querySelectorAll('.tag').forEach(t => t.onclick = () => selectItem(DATA.find(d => d.loc === t.dataset.loc && d.sku === t.dataset.sku)));
+  if (!focusSku) { clearMap(); markRack(rackId); $('#detail').innerHTML = items.length ? `<div class="dim">此架共 ${items.length} 筆，點 SKU 看明細</div>` : '<div class="dim">此架無資料</div>'; }
+}
+function selectItem(d) {
+  if (!d) return;
+  clearMap(); markRack(d.rackId); showRack(d.rackId, d.level, d.sku);
+  $('#detail').innerHTML = `<table>
+    <tr><td>SKU</td><td><b>${esc(d.sku)}</b></td></tr>
+    <tr><td>名稱</td><td>${esc(d.name)}</td></tr>
+    <tr><td>格位</td><td><span class="loc">${esc(d.loc)}</span>　<span class="dim">行-架-層</span></td></tr>
+    <tr><td>箱</td><td>${d.box} 箱 × ${d.perBox} 件 = ${d.box*d.perBox}</td></tr>
+    <tr><td>盒</td><td>${d.pack} 盒 × ${d.perPack} 件 = ${d.pack*d.perPack}</td></tr>
+    <tr><td>散件</td><td>${d.loose}</td></tr>
+    <tr><td>總件數</td><td class="total">${d.total}</td></tr>
+    ${d.note ? `<tr><td>備註</td><td>${esc(d.note)}</td></tr>` : ''}
+  </table>`;
+  // $('#rackTitle').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ========== 單一搜尋 ========== */
+function search() {
+  const q = $('#q').value.trim().toLowerCase(), R = $('#results');
+  if (!q) { R.innerHTML = ''; return; }
+  const hits = DATA.filter(d => d.sku.toLowerCase().includes(q) || d.name.toLowerCase().includes(q)).slice(0, 40);
+  R.innerHTML = hits.length ? hits.map((d, i) => `<div class="res" data-i="${i}"><b>${esc(d.sku)}</b> <span class="loc">${esc(d.loc)}</span><br><span class="dim">${esc(d.name)}　庫存 ${d.total}</span></div>`).join('') : '<div class="dim" style="padding:8px">找不到</div>';
+  R.querySelectorAll('.res').forEach(el => el.onclick = () => selectItem(hits[el.dataset.i]));
+  if (hits.length === 1 || (hits.length && hits.every(h => h.sku === hits[0].sku) && hits[0].sku.toLowerCase() === q)) selectItem(hits[0]);
+}
+
+/* ========== 多 SKU 揀貨路線 ========== */
+function makeRoute() {
+  const lines = $('#multi').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const steps = [], miss = [];
+  for (const ln of lines) {
+    const [sku, qty] = ln.split(/[\s,，\t]+/);
+    const found = DATA.filter(d => d.sku.toLowerCase() === sku.toLowerCase());
+    if (!found.length) { miss.push(sku); continue; }
+    found.forEach(d => steps.push({ ...d, qty }));
+  }
+  const ord = id => { const i = PICK_ORDER.indexOf(id); return i < 0 ? 999 : i; };
+  steps.sort((a, b) => ord(a.rackId) - ord(b.rackId) || a.level - b.level);
+  clearMap();
+  const seen = new Map();
+  steps.forEach((s, i) => { if (!seen.has(s.rackId)) { seen.set(s.rackId, i + 1); markRack(s.rackId, i + 1); } });
+  $('#routeList').innerHTML = steps.map((s, i) => `<li><span class="loc">${esc(s.loc)}</span> <b>${esc(s.sku)}</b>${s.qty ? ` × ${esc(s.qty)}` : ''}<br><span class="dim">${esc(s.name)}　庫存 ${s.total}</span></li>`).join('')
+    + (miss.length ? `<li class="miss">找不到：${miss.map(esc).join('、')}</li>` : '');
+  if (steps.length) showRack(steps[0].rackId, steps[0].level, steps[0].sku);
+}
+
+/* ========== 事件 ========== */
+buildMap(); load();
+$('#refresh').onclick = load;
+let tmr; $('#q').oninput = () => { clearTimeout(tmr); tmr = setTimeout(search, 200); };
+$('#route').onclick = makeRoute;
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('active')); b.classList.add('active');
+  $('#tab-single').hidden = b.dataset.tab !== 'single'; $('#tab-multi').hidden = b.dataset.tab !== 'multi';
+});
+</script>
+</body>
+</html>
