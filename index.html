@@ -29,9 +29,11 @@
   .dim{color:#9ca3af;font-size:12px}
   .err{background:#fee2e2;color:#991b1b;padding:10px;border-radius:6px;font-size:13px;white-space:pre-wrap}
 
-  /* 平面圖 */
-  .mapwrap{overflow:auto}
-  .map{display:grid;grid-template-columns:34px 72px repeat(18,46px);grid-template-rows:52px 26px 62px 62px 44px 50px 50px 26px 50px;gap:2px;width:max-content;padding:4px;background:#fafafa}
+
+  /* 平面圖（等比縮放） */
+  .mapwrap{width:100%;overflow-x:hidden;overflow-y:hidden;-webkit-overflow-scrolling:touch}
+  .mapscale{position:relative;margin:0 auto}            /* 尺寸由 JS 設定 = 原始尺寸 × 縮放比 */
+  .map{display:grid;grid-template-columns:34px 72px repeat(18,46px);grid-template-rows:52px 26px 62px 62px 44px 50px 50px 26px 50px;gap:2px;width:max-content;padding:4px;background:#fafafa;transform-origin:top left}
   .map div{display:flex;align-items:center;justify-content:center;font-size:13px;border-radius:3px;position:relative}
   .aisle{background:#a3a3a3}
   .area{font-size:12px}
@@ -42,6 +44,7 @@
   .rack.onroute{background:#dbeafe;border-color:#2563eb}
   .badge{position:absolute;top:-8px;right:-6px;background:#dc2626;color:#fff;border-radius:10px;font-size:11px;padding:1px 6px;font-weight:bold;line-height:16px}
   .door{font-weight:bold;color:#dc2626;font-size:12px;writing-mode:vertical-rl}
+
 
   /* 直立貨架 */
   .rackview{display:flex;gap:14px;flex-wrap:wrap}
@@ -58,7 +61,19 @@
   .detail table{border-collapse:collapse;width:100%}
   .detail td{padding:5px 6px;border-bottom:1px solid #eee}
   .detail td:first-child{color:#6b7280;width:90px}
-  .total{font-size:22px;font-weight:bold;color:#2563eb}
+
+
+  /* 明細：三欄格子 */
+  .grp{display:grid;grid-template-columns:repeat(3,1fr);gap:2px 12px;padding:10px 6px;border-bottom:1px solid #eee}
+  .grp .h{font-size:12px;color:#6b7280}
+  .grp .n{font-size:20px;font-weight:600;line-height:1.3}
+  .grp .n .u{font-size:12px;color:#6b7280;font-weight:400;margin-left:3px}
+  .grp .sub{color:#6b7280}
+  .grp.total .n{font-size:28px;color:#2563eb}
+  .grp .note{grid-column:1 / -1;font-size:13px;color:#555;margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;white-space:pre-wrap}
+  .grp .note .k{color:#6b7280;margin-right:6px}
+
+
   ol.route{padding-left:22px;margin:10px 0 0;font-size:14px}
   ol.route li{padding:6px 0;border-bottom:1px solid #eee}
   .miss{color:#dc2626}
@@ -69,6 +84,7 @@
   <h1>📦 倉庫查貨</h1>
   <div class="status"><span id="updated">載入中…</span><button class="sec" id="refresh">↻ 重新整理</button></div>
 </header>
+
 
 <main>
   <section class="panel">
@@ -88,18 +104,25 @@
     <div id="msg"></div>
   </section>
 
-  <!-- 貨架：移到右上（原平面圖位置） -->
+
+  <!-- 貨架：右上 -->
   <section class="panel">
     <h2 id="rackTitle">貨架 <span class="dim">— 請先搜尋或點平面圖</span></h2>
     <div class="rackview"><div id="rackView"></div><div class="detail" id="detail"></div></div>
   </section>
 
-  <!-- 平面圖：移到下方，橫跨全寬 -->
+
+  <!-- 平面圖：下方全寬，等比縮放 -->
   <section class="panel" style="grid-column:1 / -1">
     <h2>平面圖 <span class="dim">（點貨架可看內容）</span></h2>
-    <div class="mapwrap"><div class="map" id="map"></div></div>
+    <div class="mapwrap" id="mapwrap">
+      <div class="mapscale" id="mapscale">
+        <div class="map" id="map"></div>
+      </div>
+    </div>
   </section>
 </main>
+
 
 <script>
 /* ========== 設定 ========== */
@@ -110,7 +133,10 @@ const CONFIG = {
   MAX_LEVELS: 4,          // 直立圖固定畫 4 格
   DEFAULT_LEVELS: 4,      // Sheet 沒填「行總層數」時的預設
   ROW_LEVELS_FALLBACK: { O: 3, P: 3, Q: 3 },
+  MAP_MIN_SCALE: 0.55,    // 平面圖最小縮放比（再小就改成橫向捲動，避免手機點不到）
+  MAP_MAX_SCALE: 1.6,     // 平面圖最大縮放比（避免大螢幕放太大）
 };
+
 
 /* 平面圖：c=欄 r=列 w=跨欄 h=跨列 */
 const LAYOUT = [
@@ -138,16 +164,19 @@ const LAYOUT = [
   {t:'rack',id:'R1',c:6,r:9,w:4},{t:'rack',id:'R2',c:10,r:9,w:3},{t:'rack',id:'R3',c:13,r:9,w:3},{t:'rack',id:'R4',c:16,r:9,w:3},
 ];
 
+
 /* 揀貨走訪順序（從門口出發，可自行調整） */
 const PICK_ORDER = ['A1','B1','C1','D1','E1','F1','G1','H1','I1','J1','K1','L2','L1','L3','L4',
   'N4','K2','J2','N3','I2','H2','N2','G2','F2','N1','E2','D2','M1','C2','B2','A2','A3',
   'O1','O2','Q1','P2','P1','R1','R2','R3','R4'];
+
 
 /* ========== 資料 ========== */
 let DATA = [], LEVELS = {};
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const num = v => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return isNaN(n) ? 0 : n; };
+
 
 async function fetchRows() {
   if (CONFIG.API_KEY) {
@@ -160,7 +189,7 @@ async function fetchRows() {
   return parseCSV(await r.text());
 }
 function parseCSV(t) {
-  const rows = [], row = []; let f = '', q = false, cur = [];
+  const rows = []; let f = '', q = false, cur = [];
   for (let i = 0; i < t.length; i++) {
     const c = t[i];
     if (q) { if (c === '"') { if (t[i+1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
@@ -192,14 +221,16 @@ function normalize(rows) {
 }
 const levelsOf = row => LEVELS[row] || CONFIG.ROW_LEVELS_FALLBACK[row] || CONFIG.DEFAULT_LEVELS;
 
+
 async function load() {
   $('#updated').textContent = '載入中…'; $('#msg').innerHTML = '';
   try {
     DATA = normalize(await fetchRows());
-    $('#updated').textContent = `資料更新：${new Date().toLocaleTimeString('zh-TW')}　共 ${DATA.length} 筆`;
+    $('#updated').textContent = `資料更新：${new Date().toLocaleTimeString('zh-TW')} 共 ${DATA.length} 筆`;
     if ($('#q').value) search();
   } catch (e) { $('#updated').textContent = '載入失敗'; $('#msg').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
 }
+
 
 /* ========== 平面圖 ========== */
 function buildMap() {
@@ -213,6 +244,7 @@ function buildMap() {
     else { d.className = 'rack'; d.dataset.id = it.id; d.textContent = it.label || it.id; d.onclick = () => showRack(it.id); }
     m.appendChild(d);
   }
+  fitMap();
 }
 function clearMap() { document.querySelectorAll('.rack').forEach(r => { r.classList.remove('hit', 'onroute'); r.querySelector('.badge')?.remove(); }); }
 function markRack(id, badge) {
@@ -220,6 +252,33 @@ function markRack(id, badge) {
   if (badge != null) { el.classList.add('onroute'); let b = el.querySelector('.badge'); if (!b) { b = document.createElement('span'); b.className = 'badge'; el.appendChild(b); } b.textContent = b.textContent ? b.textContent + ',' + badge : badge; }
   else el.classList.add('hit');
 }
+
+
+/* 平面圖等比縮放：依 .mapwrap 寬度自動放大 / 縮小 */
+let lastWrapW = -1;
+function fitMap() {
+  const wrap = $('#mapwrap'), box = $('#mapscale'), map = $('#map');
+  if (!wrap || !box || !map) return;
+  const wrapW = wrap.clientWidth; if (!wrapW) return;
+
+  map.style.transform = '';                        // 先還原，量原始尺寸
+  const natW = map.offsetWidth, natH = map.offsetHeight;
+  if (!natW) return;
+
+  let scale = wrapW / natW;
+  if (scale > CONFIG.MAP_MAX_SCALE) scale = CONFIG.MAP_MAX_SCALE;
+  if (scale < CONFIG.MAP_MIN_SCALE) { scale = CONFIG.MAP_MIN_SCALE; wrap.style.overflowX = 'auto'; }   // 太窄 → 允許橫向捲動
+  else wrap.style.overflowX = 'hidden';
+
+  map.style.transform = `scale(${scale})`;
+  box.style.width  = Math.round(natW * scale) + 'px';   // 容器尺寸 = 縮放後尺寸，讓版面高度正確、置中
+  box.style.height = Math.round(natH * scale) + 'px';
+  lastWrapW = wrapW;
+}
+new ResizeObserver(() => { const w = $('#mapwrap')?.clientWidth; if (w && w !== lastWrapW) fitMap(); }).observe($('#mapwrap'));
+window.addEventListener('load', fitMap);
+window.addEventListener('orientationchange', () => setTimeout(fitMap, 100));
+
 
 /* ========== 直立貨架 + 明細 ========== */
 function showRack(rackId, focusLevel, focusSku) {
@@ -240,28 +299,47 @@ function showRack(rackId, focusLevel, focusSku) {
 function selectItem(d) {
   if (!d) return;
   clearMap(); markRack(d.rackId); showRack(d.rackId, d.level, d.sku);
-  $('#detail').innerHTML = `<table>
+  const boxSub = d.box * d.perBox, packSub = d.pack * d.perPack;
+  $('#detail').innerHTML = `
+  <table>
     <tr><td>SKU</td><td><b>${esc(d.sku)}</b></td></tr>
     <tr><td>名稱</td><td>${esc(d.name)}</td></tr>
-    <tr><td>格位</td><td><span class="loc">${esc(d.loc)}</span>　<span class="dim">行-架-層</span></td></tr>
-    <tr><td>箱</td><td>${d.box} 箱 × ${d.perBox} 件 = ${d.box*d.perBox}</td></tr>
-    <tr><td>盒</td><td>${d.pack} 盒 × ${d.perPack} 件 = ${d.pack*d.perPack}</td></tr>
-    <tr><td>散件</td><td>${d.loose}</td></tr>
-    <tr><td>總件數</td><td class="total">${d.total}</td></tr>
-    ${d.note ? `<tr><td>備註</td><td>${esc(d.note)}</td></tr>` : ''}
-  </table>`;
-  // $('#rackTitle').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    <tr><td>格位</td><td><span class="loc">${esc(d.loc)}</span> <span class="dim">行-架-層</span></td></tr>
+  </table>
+  <div class="grp">
+    <div class="h">箱數</div><div class="h">一箱總件數</div><div class="h">小計</div>
+    <div class="n">${d.box}<span class="u">箱</span></div>
+    <div class="n">${d.perBox}<span class="u">件</span></div>
+    <div class="n sub">${boxSub}<span class="u">件</span></div>
+  </div>
+  <div class="grp">
+    <div class="h">盒數</div><div class="h">一盒總件數</div><div class="h">小計</div>
+    <div class="n">${d.pack}<span class="u">盒</span></div>
+    <div class="n">${d.perPack}<span class="u">件</span></div>
+    <div class="n sub">${packSub}<span class="u">件</span></div>
+  </div>
+  <div class="grp">
+    <div class="h">散件數量</div><div></div><div></div>
+    <div class="n">${d.loose}<span class="u">件</span></div><div></div><div></div>
+  </div>
+  <div class="grp total">
+    <div class="h">總件數</div><div></div><div></div>
+    <div class="n">${d.total}<span class="u">件</span></div><div></div><div></div>
+    <div class="note"><span class="k">備註</span>${d.note ? esc(d.note) : '<span class="dim">—</span>'}</div>
+  </div>`;
 }
+
 
 /* ========== 單一搜尋 ========== */
 function search() {
   const q = $('#q').value.trim().toLowerCase(), R = $('#results');
   if (!q) { R.innerHTML = ''; return; }
   const hits = DATA.filter(d => d.sku.toLowerCase().includes(q) || d.name.toLowerCase().includes(q)).slice(0, 40);
-  R.innerHTML = hits.length ? hits.map((d, i) => `<div class="res" data-i="${i}"><b>${esc(d.sku)}</b> <span class="loc">${esc(d.loc)}</span><br><span class="dim">${esc(d.name)}　庫存 ${d.total}</span></div>`).join('') : '<div class="dim" style="padding:8px">找不到</div>';
+  R.innerHTML = hits.length ? hits.map((d, i) => `<div class="res" data-i="${i}"><b>${esc(d.sku)}</b> <span class="loc">${esc(d.loc)}</span><br><span class="dim">${esc(d.name)} 庫存 ${d.total}</span></div>`).join('') : '<div class="dim" style="padding:8px">找不到</div>';
   R.querySelectorAll('.res').forEach(el => el.onclick = () => selectItem(hits[el.dataset.i]));
   if (hits.length === 1 || (hits.length && hits.every(h => h.sku === hits[0].sku) && hits[0].sku.toLowerCase() === q)) selectItem(hits[0]);
 }
+
 
 /* ========== 多 SKU 揀貨路線 ========== */
 function makeRoute() {
@@ -278,10 +356,11 @@ function makeRoute() {
   clearMap();
   const seen = new Map();
   steps.forEach((s, i) => { if (!seen.has(s.rackId)) { seen.set(s.rackId, i + 1); markRack(s.rackId, i + 1); } });
-  $('#routeList').innerHTML = steps.map((s, i) => `<li><span class="loc">${esc(s.loc)}</span> <b>${esc(s.sku)}</b>${s.qty ? ` × ${esc(s.qty)}` : ''}<br><span class="dim">${esc(s.name)}　庫存 ${s.total}</span></li>`).join('')
+  $('#routeList').innerHTML = steps.map((s, i) => `<li><span class="loc">${esc(s.loc)}</span> <b>${esc(s.sku)}</b>${s.qty ? ` × ${esc(s.qty)}` : ''}<br><span class="dim">${esc(s.name)} 庫存 ${s.total}</span></li>`).join('')
     + (miss.length ? `<li class="miss">找不到：${miss.map(esc).join('、')}</li>` : '');
   if (steps.length) showRack(steps[0].rackId, steps[0].level, steps[0].sku);
 }
+
 
 /* ========== 事件 ========== */
 buildMap(); load();
