@@ -6,16 +6,25 @@
 <title>倉庫查貨</title>
 <style>
   *{box-sizing:border-box}
-  body{margin:0;font-family:-apple-system,"Microsoft JhengHei","Noto Sans TC",sans-serif;background:#f4f5f7;color:#222}
+  html,body{margin:0;overflow-x:hidden}
+  body{font-family:-apple-system,"Microsoft JhengHei","Noto Sans TC",sans-serif;background:#f4f5f7;color:#222}
   header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#1f2937;color:#fff;flex-wrap:wrap;gap:8px}
   header h1{font-size:18px;margin:0}
-  .status{font-size:13px;display:flex;align-items:center;gap:8px}
-  button{cursor:pointer;border:0;border-radius:6px;padding:8px 14px;font-size:14px;background:#2563eb;color:#fff}
+  .status{font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  button{cursor:pointer;border:0;border-radius:6px;padding:8px 14px;font-size:14px;background:#2563eb;color:#fff;min-height:40px}
   button.sec{background:#e5e7eb;color:#222}
-  main{display:grid;grid-template-columns:340px 1fr;gap:12px;padding:12px}
-  @media(max-width:900px){main{grid-template-columns:1fr}}
-  .panel{background:#fff;border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-  .panel h2{font-size:15px;margin:0 0 10px}
+
+  /* 版面：置中、最寬 1100；再窄就整體跟視窗縮，不左右捲 */
+  .wrap{width:100%;max-width:1100px;margin:0 auto;padding:12px;display:grid;gap:12px}
+  .top{display:grid;grid-template-columns:300px 260px minmax(0,1fr);gap:12px;align-items:start}
+  .panel{background:#fff;border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.08);min-width:0}
+  .panel h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  @media(max-width:900px){
+    .wrap{padding:10px}
+    .top{grid-template-columns:1fr}
+  }
+
+  /* 搜尋 / 揀貨 */
   .tabs{display:flex;gap:6px;margin-bottom:10px}
   .tabs button{background:#e5e7eb;color:#222;flex:1}
   .tabs button.active{background:#2563eb;color:#fff}
@@ -28,13 +37,15 @@
   .loc{display:inline-block;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;padding:0 6px;font-weight:bold;font-family:monospace}
   .dim{color:#9ca3af;font-size:12px}
   .err{background:#fee2e2;color:#991b1b;padding:10px;border-radius:6px;font-size:13px;white-space:pre-wrap}
+  ol.route{padding-left:22px;margin:10px 0 0;font-size:14px;max-height:360px;overflow:auto}
+  ol.route li{padding:6px 0;border-bottom:1px solid #eee}
+  .miss{color:#dc2626}
 
-
-  /* 平面圖（等比縮放） */
-  .mapwrap{width:100%;overflow-x:hidden;overflow-y:hidden;-webkit-overflow-scrolling:touch}
-  .mapscale{position:relative;margin:0 auto}            /* 尺寸由 JS 設定 = 原始尺寸 × 縮放比 */
-  .map{display:grid;grid-template-columns:34px 72px repeat(18,46px);grid-template-rows:52px 26px 62px 62px 44px 50px 50px 26px 50px;gap:2px;width:max-content;padding:4px;background:#fafafa;transform-origin:top left}
-  .map div{display:flex;align-items:center;justify-content:center;font-size:13px;border-radius:3px;position:relative}
+  /* 平面圖（等比縮放；欄列由 JS 依橫／直向設定） */
+  .mapwrap{width:100%;overflow:hidden}
+  .mapscale{position:relative;margin:0 auto}
+  .map{display:grid;gap:2px;width:max-content;padding:4px;background:#fafafa;transform-origin:top left}
+  .map div{display:flex;align-items:center;justify-content:center;font-size:13px;border-radius:3px;position:relative;text-align:center;line-height:1.15;padding:0 2px}
   .aisle{background:#a3a3a3}
   .area{font-size:12px}
   .office{background:#fde7c8}.display{background:#d9d4ea}
@@ -44,26 +55,27 @@
   .rack.onroute{background:#dbeafe;border-color:#2563eb}
   .badge{position:absolute;top:-8px;right:-6px;background:#dc2626;color:#fff;border-radius:10px;font-size:11px;padding:1px 6px;font-weight:bold;line-height:16px}
   .door{font-weight:bold;color:#dc2626;font-size:12px;writing-mode:vertical-rl}
-
+  body.portrait .door{writing-mode:horizontal-tb;font-size:11px;white-space:nowrap;overflow:visible}
+  .legend{display:flex;gap:14px;font-size:12px;color:#6b7280;margin-top:8px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:14px;height:14px;border:1px solid #cbd5e1;vertical-align:-2px;margin-right:4px;border-radius:3px}
 
   /* 直立貨架 */
-  .rackview{display:flex;gap:14px;flex-wrap:wrap}
-  .rackcol{width:200px;border:3px solid #374151;border-radius:6px;overflow:hidden}
-  .cell{min-height:64px;border-bottom:3px solid #374151;padding:6px;display:flex;flex-direction:column;gap:4px}
+  .rackcol{width:100%;max-width:220px;border:3px solid #374151;border-radius:6px;overflow:hidden}
+  .cell{min-height:64px;border-bottom:3px solid #374151;padding:6px;display:flex;flex-direction:column;gap:4px;cursor:pointer}
   .cell:last-child{border-bottom:0}
+  .cell:hover{background:#eff6ff}
   .cell .lv{font-size:12px;color:#6b7280}
   .cell.focus{background:#fef3c7}
-  .cell.dead{background:repeating-linear-gradient(45deg,#e5e7eb 0 6px,#f3f4f6 6px 12px);color:#9ca3af}
+  .cell.dead{background:repeating-linear-gradient(45deg,#e5e7eb 0 6px,#f3f4f6 6px 12px);color:#9ca3af;cursor:default}
   .skus{display:flex;flex-wrap:wrap;gap:4px}
   .tag{background:#e5e7eb;border-radius:4px;padding:1px 6px;font-size:12px;cursor:pointer;font-family:monospace}
   .tag.hot{background:#f59e0b;color:#fff;font-weight:bold}
-  .detail{flex:1;min-width:240px;font-size:14px}
+
+  /* 詳情 */
+  .detail{font-size:14px}
   .detail table{border-collapse:collapse;width:100%}
-  .detail td{padding:5px 6px;border-bottom:1px solid #eee}
-  .detail td:first-child{color:#6b7280;width:90px}
-
-
-  /* 明細：三欄格子 */
+  .detail td{padding:5px 6px;border-bottom:1px solid #eee;word-break:break-word}
+  .detail td:first-child{color:#6b7280;width:70px}
   .grp{display:grid;grid-template-columns:repeat(3,1fr);gap:2px 12px;padding:10px 6px;border-bottom:1px solid #eee}
   .grp .h{font-size:12px;color:#6b7280}
   .grp .n{font-size:20px;font-weight:600;line-height:1.3}
@@ -73,10 +85,15 @@
   .grp .note{grid-column:1 / -1;font-size:13px;color:#555;margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;white-space:pre-wrap}
   .grp .note .k{color:#6b7280;margin-right:6px}
 
-
-  ol.route{padding-left:22px;margin:10px 0 0;font-size:14px}
-  ol.route li{padding:6px 0;border-bottom:1px solid #eee}
-  .miss{color:#dc2626}
+  /* 格位明細（最下） */
+  #cellDetail table{width:100%;border-collapse:collapse;font-size:14px;table-layout:auto}
+  #cellDetail th,#cellDetail td{padding:10px 6px;border-bottom:1px solid #eee;text-align:left;word-break:break-word;vertical-align:top}
+  #cellDetail th{color:#6b7280;font-weight:600;font-size:12px}
+  #cellDetail tbody tr{cursor:pointer}
+  #cellDetail tbody tr:hover td{background:#eff6ff}
+  #cellDetail tr.hot td:first-child::before{content:"● ";color:#f59e0b}
+  #cellDetail .mono{font-family:monospace;font-weight:bold}
+  .empty{color:#9ca3af;text-align:center;padding:28px 0;font-size:14px}
 </style>
 </head>
 <body>
@@ -85,44 +102,60 @@
   <div class="status"><span id="updated">載入中…</span><button class="sec" id="refresh">↻ 重新整理</button></div>
 </header>
 
+<div class="wrap">
+  <div class="top">
+    <!-- ① 搜尋 / 揀貨 -->
+    <section class="panel">
+      <div class="tabs">
+        <button class="active" data-tab="single">查單一 SKU</button>
+        <button data-tab="multi">多 SKU 揀貨</button>
+      </div>
+      <div id="tab-single">
+        <input id="q" placeholder="輸入 SKU 或名稱（例：E0204、泰迪）" autocomplete="off">
+        <div id="results"></div>
+      </div>
+      <div id="tab-multi" hidden>
+        <textarea id="multi" placeholder="每行一個 SKU，可加數量：&#10;E0204 5&#10;E0301 2"></textarea>
+        <button id="route" style="margin-top:8px;width:100%">產生揀貨路線</button>
+        <ol class="route" id="routeList"></ol>
+      </div>
+      <div id="msg"></div>
+    </section>
 
-<main>
+    <!-- ② 貨架直立圖 -->
+    <section class="panel">
+      <h2 id="rackTitle">貨架 <span class="dim">— 請先搜尋或點平面圖</span></h2>
+      <div id="rackView"><div class="empty">點平面圖貨架，或搜尋 SKU</div></div>
+    </section>
+
+    <!-- ③ 詳情 -->
+    <section class="panel">
+      <h2>詳情</h2>
+      <div class="detail" id="detail"><div class="empty">選取 SKU 後顯示箱／盒／散件與總數</div></div>
+    </section>
+  </div>
+
+  <!-- ④ 平面圖 -->
   <section class="panel">
-    <div class="tabs">
-      <button class="active" data-tab="single">查單一 SKU</button>
-      <button data-tab="multi">多 SKU 揀貨</button>
-    </div>
-    <div id="tab-single">
-      <input id="q" placeholder="輸入 SKU 或名稱（例：E0204、泰迪）" autocomplete="off">
-      <div id="results"></div>
-    </div>
-    <div id="tab-multi" hidden>
-      <textarea id="multi" placeholder="每行一個 SKU，可加數量：&#10;E0204 5&#10;E0301 2"></textarea>
-      <button id="route" style="margin-top:8px;width:100%">產生揀貨路線</button>
-      <ol class="route" id="routeList"></ol>
-    </div>
-    <div id="msg"></div>
-  </section>
-
-
-  <!-- 貨架：右上 -->
-  <section class="panel">
-    <h2 id="rackTitle">貨架 <span class="dim">— 請先搜尋或點平面圖</span></h2>
-    <div class="rackview"><div id="rackView"></div><div class="detail" id="detail"></div></div>
-  </section>
-
-
-  <!-- 平面圖：下方全寬，等比縮放 -->
-  <section class="panel" style="grid-column:1 / -1">
     <h2>平面圖 <span class="dim">（點貨架可看內容）</span></h2>
     <div class="mapwrap" id="mapwrap">
       <div class="mapscale" id="mapscale">
         <div class="map" id="map"></div>
       </div>
     </div>
+    <div class="legend">
+      <span><i style="background:#f59e0b;border-color:#b45309"></i>目標貨架</span>
+      <span><i style="background:#dbeafe;border-color:#2563eb"></i>揀貨路線（數字＝順序）</span>
+      <span><i style="background:#a3a3a3;border-color:#a3a3a3"></i>走道</span>
+    </div>
   </section>
-</main>
 
+  <!-- ⑤ 格位明細 -->
+  <section class="panel">
+    <h2 id="cellTitle">格位明細</h2>
+    <div id="cellDetail"><div class="empty">點直立圖任何一層，查看該層所有 SKU</div></div>
+  </section>
+</div>
 
 <script>
 /* ========== 設定 ========== */
@@ -133,16 +166,17 @@ const CONFIG = {
   MAX_LEVELS: 4,          // 直立圖固定畫 4 格
   DEFAULT_LEVELS: 4,      // Sheet 沒填「行總層數」時的預設
   ROW_LEVELS_FALLBACK: { O: 3, P: 3, Q: 3 },
-  MAP_MIN_SCALE: 0.55,    // 平面圖最小縮放比（再小就改成橫向捲動，避免手機點不到）
-  MAP_MAX_SCALE: 1.6,     // 平面圖最大縮放比（避免大螢幕放太大）
+  MAP_MAX_SCALE: 1.6,     // 平面圖最大縮放比（避免大螢幕放太大）；最小不設限，永不左右捲動
+  PORTRAIT_BREAKPOINT: 900,
 };
 
-
-/* 平面圖：c=欄 r=列 w=跨欄 h=跨列 */
+/* 平面圖：橫向座標 c=欄 r=列 w=跨欄 h=跨列；直向由程式順時針轉 90° */
+const MAP_COLS = ['34px','72px', ...Array(18).fill('46px')];                 // 20 欄
+const MAP_ROWS = ['52px','26px','62px','62px','44px','50px','50px','26px','50px']; // 9 列
 const LAYOUT = [
   {t:'area',cls:'office',label:'Office 區',c:2,r:1},
   {t:'area',cls:'display',label:'Display 區',c:2,r:3,h:2},
-  {t:'door',label:'門口 ▶',c:1,r:5},
+  {t:'door',label:'門口',c:1,r:5},
   {t:'rack',id:'A3',c:3,r:1},{t:'rack',id:'A2',c:3,r:3},{t:'rack',id:'A1',c:3,r:4},
   {t:'rack',id:'M1',c:4,r:1,w:3},{t:'rack',id:'N1',c:7,r:1,w:3},{t:'rack',id:'N2',c:10,r:1,w:3},
   {t:'rack',id:'N3',c:13,r:1,w:3},{t:'rack',id:'N4',c:16,r:1,w:3},
@@ -164,19 +198,16 @@ const LAYOUT = [
   {t:'rack',id:'R1',c:6,r:9,w:4},{t:'rack',id:'R2',c:10,r:9,w:3},{t:'rack',id:'R3',c:13,r:9,w:3},{t:'rack',id:'R4',c:16,r:9,w:3},
 ];
 
-
 /* 揀貨走訪順序（從門口出發，可自行調整） */
 const PICK_ORDER = ['A1','B1','C1','D1','E1','F1','G1','H1','I1','J1','K1','L2','L1','L3','L4',
   'N4','K2','J2','N3','I2','H2','N2','G2','F2','N1','E2','D2','M1','C2','B2','A2','A3',
   'O1','O2','Q1','P2','P1','R1','R2','R3','R4'];
-
 
 /* ========== 資料 ========== */
 let DATA = [], LEVELS = {};
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const num = v => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return isNaN(n) ? 0 : n; };
-
 
 async function fetchRows() {
   if (CONFIG.API_KEY) {
@@ -221,7 +252,6 @@ function normalize(rows) {
 }
 const levelsOf = row => LEVELS[row] || CONFIG.ROW_LEVELS_FALLBACK[row] || CONFIG.DEFAULT_LEVELS;
 
-
 async function load() {
   $('#updated').textContent = '載入中…'; $('#msg').innerHTML = '';
   try {
@@ -231,47 +261,57 @@ async function load() {
   } catch (e) { $('#updated').textContent = '載入失敗'; $('#msg').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
 }
 
+/* ========== 平面圖（橫向 / 直向） ========== */
+let portrait = false;
+const marks = { hit: new Set(), route: new Map() };   // 記住標記，換方向重繪後還原
 
-/* ========== 平面圖 ========== */
 function buildMap() {
   const m = $('#map'); m.innerHTML = '';
+  if (portrait) { m.style.gridTemplateColumns = [...MAP_ROWS].reverse().join(' '); m.style.gridTemplateRows = MAP_COLS.join(' '); }
+  else          { m.style.gridTemplateColumns = MAP_COLS.join(' ');                m.style.gridTemplateRows = MAP_ROWS.join(' '); }
   for (const it of LAYOUT) {
+    const w = it.w || 1, h = it.h || 1;
+    // 順時針 90°：新欄 = 總列數 − r − h + 2（跨 h 欄），新列 = c（跨 w 列）
+    const c  = portrait ? MAP_ROWS.length - it.r - h + 2 : it.c;
+    const r  = portrait ? it.c : it.r;
+    const cw = portrait ? h : w, rh = portrait ? w : h;
     const d = document.createElement('div');
-    d.style.gridColumn = `${it.c} / span ${it.w || 1}`; d.style.gridRow = `${it.r} / span ${it.h || 1}`;
+    d.style.gridColumn = `${c} / span ${cw}`; d.style.gridRow = `${r} / span ${rh}`;
     if (it.t === 'aisle') d.className = 'aisle';
     else if (it.t === 'area') { d.className = 'area ' + it.cls; d.textContent = it.label; }
-    else if (it.t === 'door') { d.className = 'door'; d.textContent = it.label; }
+    else if (it.t === 'door') { d.className = 'door'; d.textContent = it.label + (portrait ? ' ▼' : ' ▶'); }
     else { d.className = 'rack'; d.dataset.id = it.id; d.textContent = it.label || it.id; d.onclick = () => showRack(it.id); }
     m.appendChild(d);
   }
-  fitMap();
+  applyMarks(); fitMap();
 }
-function clearMap() { document.querySelectorAll('.rack').forEach(r => { r.classList.remove('hit', 'onroute'); r.querySelector('.badge')?.remove(); }); }
+function clearMap() { marks.hit.clear(); marks.route.clear(); applyMarks(); }
 function markRack(id, badge) {
-  const el = document.querySelector(`.rack[data-id="${id}"]`); if (!el) return;
-  if (badge != null) { el.classList.add('onroute'); let b = el.querySelector('.badge'); if (!b) { b = document.createElement('span'); b.className = 'badge'; el.appendChild(b); } b.textContent = b.textContent ? b.textContent + ',' + badge : badge; }
-  else el.classList.add('hit');
+  if (badge != null) marks.route.set(id, marks.route.has(id) ? marks.route.get(id) + ',' + badge : String(badge));
+  else marks.hit.add(id);
+  applyMarks();
+}
+function applyMarks() {
+  document.querySelectorAll('.rack').forEach(el => {
+    el.classList.remove('hit', 'onroute'); el.querySelector('.badge')?.remove();
+    const id = el.dataset.id;
+    if (marks.hit.has(id)) el.classList.add('hit');
+    if (marks.route.has(id)) { el.classList.add('onroute'); const b = document.createElement('span'); b.className = 'badge'; b.textContent = marks.route.get(id); el.appendChild(b); }
+  });
 }
 
-
-/* 平面圖等比縮放：依 .mapwrap 寬度自動放大 / 縮小 */
+/* 等比縮放：一律縮到容器寬度，永不左右捲動 */
 let lastWrapW = -1;
 function fitMap() {
   const wrap = $('#mapwrap'), box = $('#mapscale'), map = $('#map');
   if (!wrap || !box || !map) return;
   const wrapW = wrap.clientWidth; if (!wrapW) return;
-
-  map.style.transform = '';                        // 先還原，量原始尺寸
+  map.style.transform = '';
   const natW = map.offsetWidth, natH = map.offsetHeight;
   if (!natW) return;
-
-  let scale = wrapW / natW;
-  if (scale > CONFIG.MAP_MAX_SCALE) scale = CONFIG.MAP_MAX_SCALE;
-  if (scale < CONFIG.MAP_MIN_SCALE) { scale = CONFIG.MAP_MIN_SCALE; wrap.style.overflowX = 'auto'; }   // 太窄 → 允許橫向捲動
-  else wrap.style.overflowX = 'hidden';
-
+  const scale = Math.min(wrapW / natW, CONFIG.MAP_MAX_SCALE);
   map.style.transform = `scale(${scale})`;
-  box.style.width  = Math.round(natW * scale) + 'px';   // 容器尺寸 = 縮放後尺寸，讓版面高度正確、置中
+  box.style.width  = Math.round(natW * scale) + 'px';
   box.style.height = Math.round(natH * scale) + 'px';
   lastWrapW = wrapW;
 }
@@ -279,8 +319,12 @@ new ResizeObserver(() => { const w = $('#mapwrap')?.clientWidth; if (w && w !== 
 window.addEventListener('load', fitMap);
 window.addEventListener('orientationchange', () => setTimeout(fitMap, 100));
 
+/* 直向／橫向跟 CSS 同一斷點 */
+const mq = matchMedia(`(max-width:${CONFIG.PORTRAIT_BREAKPOINT}px)`);
+function syncOrientation() { portrait = mq.matches; document.body.classList.toggle('portrait', portrait); buildMap(); }
+mq.addEventListener ? mq.addEventListener('change', syncOrientation) : mq.addListener(syncOrientation);
 
-/* ========== 直立貨架 + 明細 ========== */
+/* ========== 直立貨架 ========== */
 function showRack(rackId, focusLevel, focusSku) {
   const row = rackId.replace(/\d+$/, ''), n = levelsOf(row), items = DATA.filter(d => d.rackId === rackId);
   const label = LAYOUT.find(l => l.id === rackId)?.label || rackId;
@@ -289,16 +333,24 @@ function showRack(rackId, focusLevel, focusSku) {
   for (let l = 1; l <= CONFIG.MAX_LEVELS; l++) {
     if (l > n) { h += `<div class="cell dead"><span class="lv">—</span><span class="dim">無此層</span></div>`; continue; }
     const here = items.filter(d => d.level === l);
-    h += `<div class="cell ${l === focusLevel ? 'focus' : ''}"><span class="lv">第 ${l} 層${l === n ? '（地面）' : ''}</span><div class="skus">${
+    h += `<div class="cell ${l === focusLevel ? 'focus' : ''}" data-level="${l}"><span class="lv">第 ${l} 層${l === n ? '（地面）' : ''}</span><div class="skus">${
       here.map(d => `<span class="tag ${d.sku === focusSku ? 'hot' : ''}" data-loc="${esc(d.loc)}" data-sku="${esc(d.sku)}">${esc(d.sku)}</span>`).join('') || '<span class="dim">空</span>'}</div></div>`;
   }
   $('#rackView').innerHTML = h + '</div>';
-  $('#rackView').querySelectorAll('.tag').forEach(t => t.onclick = () => selectItem(DATA.find(d => d.loc === t.dataset.loc && d.sku === t.dataset.sku)));
-  if (!focusSku) { clearMap(); markRack(rackId); $('#detail').innerHTML = items.length ? `<div class="dim">此架共 ${items.length} 筆，點 SKU 看明細</div>` : '<div class="dim">此架無資料</div>'; }
+  $('#rackView').querySelectorAll('.cell[data-level]').forEach(c => c.onclick = () => { showRack(rackId, +c.dataset.level, focusSku); showCell(rackId, +c.dataset.level, focusSku); });
+  $('#rackView').querySelectorAll('.tag').forEach(t => t.onclick = e => { e.stopPropagation(); selectItem(DATA.find(d => d.loc === t.dataset.loc && d.sku === t.dataset.sku)); });
+  if (!focusSku && focusLevel == null) {
+    clearMap(); markRack(rackId);
+    $('#detail').innerHTML = items.length ? `<div class="dim">此架共 ${items.length} 筆，點 SKU 看明細</div>` : '<div class="dim">此架無資料</div>';
+    $('#cellTitle').textContent = '格位明細';
+    $('#cellDetail').innerHTML = '<div class="empty">點直立圖任何一層，查看該層所有 SKU</div>';
+  }
 }
+
+/* ========== 詳情 ========== */
 function selectItem(d) {
   if (!d) return;
-  clearMap(); markRack(d.rackId); showRack(d.rackId, d.level, d.sku);
+  clearMap(); markRack(d.rackId); showRack(d.rackId, d.level, d.sku); showCell(d.rackId, d.level, d.sku);
   const boxSub = d.box * d.perBox, packSub = d.pack * d.perPack;
   $('#detail').innerHTML = `
   <table>
@@ -329,6 +381,21 @@ function selectItem(d) {
   </div>`;
 }
 
+/* ========== 格位明細（最下） ========== */
+function showCell(rackId, level, hotSku) {
+  const row = rackId.replace(/\d+$/, ''), n = levelsOf(row);
+  const items = DATA.filter(d => d.rackId === rackId && d.level === level).sort((a, b) => (b.sku === hotSku) - (a.sku === hotSku));
+  $('#cellTitle').innerHTML = `格位明細 <span class="loc">${esc(row)}-${esc(rackId.replace(/^\D+/, ''))}-${level}</span> <span class="dim">第 ${level} 層${level === n ? '（地面）' : ''} · ${items.length} 筆</span>`;
+  $('#cellDetail').innerHTML = items.length ? `<table>
+    <thead><tr><th>SKU</th><th>名稱</th><th>箱 / 盒 / 散件</th><th>總件數</th></tr></thead>
+    <tbody>${items.map((d, i) => `<tr class="${d.sku === hotSku ? 'hot' : ''}" data-i="${i}">
+      <td class="mono">${esc(d.sku)}</td>
+      <td>${esc(d.name)}${d.note ? `<br><span class="dim">${esc(d.note)}</span>` : ''}</td>
+      <td>${d.box} 箱 · ${d.pack} 盒 · ${d.loose} 件</td>
+      <td><b>${d.total}</b></td></tr>`).join('')}</tbody></table>`
+    : '<div class="empty">此層為空</div>';
+  $('#cellDetail').querySelectorAll('tbody tr').forEach(tr => tr.onclick = () => selectItem(items[tr.dataset.i]));
+}
 
 /* ========== 單一搜尋 ========== */
 function search() {
@@ -339,7 +406,6 @@ function search() {
   R.querySelectorAll('.res').forEach(el => el.onclick = () => selectItem(hits[el.dataset.i]));
   if (hits.length === 1 || (hits.length && hits.every(h => h.sku === hits[0].sku) && hits[0].sku.toLowerCase() === q)) selectItem(hits[0]);
 }
-
 
 /* ========== 多 SKU 揀貨路線 ========== */
 function makeRoute() {
@@ -358,12 +424,11 @@ function makeRoute() {
   steps.forEach((s, i) => { if (!seen.has(s.rackId)) { seen.set(s.rackId, i + 1); markRack(s.rackId, i + 1); } });
   $('#routeList').innerHTML = steps.map((s, i) => `<li><span class="loc">${esc(s.loc)}</span> <b>${esc(s.sku)}</b>${s.qty ? ` × ${esc(s.qty)}` : ''}<br><span class="dim">${esc(s.name)} 庫存 ${s.total}</span></li>`).join('')
     + (miss.length ? `<li class="miss">找不到：${miss.map(esc).join('、')}</li>` : '');
-  if (steps.length) showRack(steps[0].rackId, steps[0].level, steps[0].sku);
+  if (steps.length) { showRack(steps[0].rackId, steps[0].level, steps[0].sku); showCell(steps[0].rackId, steps[0].level, steps[0].sku); }
 }
 
-
 /* ========== 事件 ========== */
-buildMap(); load();
+syncOrientation(); load();
 $('#refresh').onclick = load;
 let tmr; $('#q').oninput = () => { clearTimeout(tmr); tmr = setTimeout(search, 200); };
 $('#route').onclick = makeRoute;
