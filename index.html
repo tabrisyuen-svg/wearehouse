@@ -177,7 +177,8 @@
 /* ========== 設定 ========== */
 const CONFIG = {
   SHEET_ID: '1fjMUqeWHNHDu-F2jBRmW19N_v17zQZR6om22q5wtkSw',
-  SHEET_NAME: 'Warehouse Data For System',     
+  SHEET_NAME: 'Warehouse Data For System',    
+  SHEET_GID: '0',        //
   API_KEY: '',            // 填入 Google API 金鑰 → 幾秒內更新；留空 → 用公開 CSV（可能延遲數分鐘）
   MAX_LEVELS: 5,          // 直立圖固定畫 5 格
   DEFAULT_LEVELS: 5,      // Sheet 沒填「行總層數」時的預設
@@ -235,7 +236,7 @@ async function fetchRows() {
     const r = await fetch(u); if (!r.ok) throw new Error('Sheets API ' + r.status + '：檢查 API 金鑰 / Sheet 是否設為「知道連結的人可檢視」');
     return (await r.json()).values || [];
   }
-  const u = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.SHEET_NAME)}&t=${Date.now()}`;
+  const u = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&gid=${CONFIG.SHEET_GID}&t=${Date.now()}`;
   const r = await fetch(u); if (!r.ok) throw new Error('讀取失敗 ' + r.status + '：Sheet 需設為「知道連結的人可檢視」');
   return parseCSV(await r.text());
 }
