@@ -643,6 +643,16 @@ $('#btnRefresh').onclick=load;
 let tmr;
 $('#aq').oninput=()=>{clearTimeout(tmr);tmr=setTimeout(aSearch,200);};
 load();
+/* ★ 接收 Hub 傳來的 SKU */
+window.addEventListener('message', e => {
+  if (e.data?.type === 'navigate' && e.data.sku) {
+    const input = $('#aq');
+    if (input) {
+      input.value = e.data.sku;
+      aSearch();
+    }
+  }
+});
 </script>
 </body>
 </html>
