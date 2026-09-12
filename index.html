@@ -12,7 +12,7 @@
   【前端架構】
   - 部署平台：Vercel（GitHub 連動，push 即更新）
   - 入口：index.html（Hub，iframe 切換各功能頁）
-  - 各功能頁：search.html、adjust.html（獨立頁，透過 postMessage 通訊）
+  - 各功能頁：search.html、adjust.html、shop-sync/index.html
 
   【後端架構】
   - 現階段：Google Apps Script + Google Sheets
@@ -35,7 +35,7 @@
   - COL_PKT_EACH  = 一盒總件數
   - COL_LOOSE     = 散件
   - COL_TOTAL     = 總貨數（J 欄，自動計算）
-  - COL_PRICE     = 價錢（待確認是否有此欄）
+  - COL_PRICE     = 價錢
   - COL_THRESHOLD = 低庫存門檻
 
   【Apps Script WEB_APP_URL】
@@ -48,36 +48,46 @@
   - index.html → iframe：postMessage
   - 格式：{ type: 'navigate', sku: '...', ... }
 
+  【shop-sync 自動更新】
+  - inventory-dashboard repo push → GitHub Actions 自動 build
+  - build 完自動 copy dist/ 到 wearehouse/shop-sync/
+  - Vercel 自動部署，無需手動操作
+
 =================================================================
   功能規劃
 =================================================================
 
   ✅ 第一階段（已完成）
-  - 🔍 查貨        search.html  掃 / 輸入 SKU 查詢格位及庫存
-  - 📝 庫存調整    adjust.html  加庫 / 扣庫，支援箱、盒、散件，更新 J 欄總貨數
+  - 🔍 查貨               search.html           掃 / 輸入 SKU 查詢格位及庫存
+  - 📝 庫存調整           adjust.html           加庫 / 扣庫，支援箱、盒、散件
+  - 🛒 網店存庫即時更新   shop-sync/index.html  對應 Shopify 及 HKTVmall 庫存同步（Demo）
 
   🔲 第二階段（計劃中）
-  - 📊 庫存總覽    overview.html   所有 SKU 表格，支援匯出 CSV / PDF（Google Sheets Template，副本存 Drive）
+  - 📊 庫存總覽    overview.html   所有 SKU 表格，支援匯出 CSV / PDF
   - ⚠️ 低庫存警示  lowstock.html   低於門檻標紅，獨立 tab 顯示
   - 📋 盤點模式    stocktake.html  輸入 SKU 對比 Sheet 數量，確認後寫入
   - 🗂️ 格位查詢    location.html   輸入行架層，列出該格所有 SKU 及數量
 
   🔲 第三階段（計劃中）
   - 📦 批量調整    batch.html      一次調整多個 SKU
-  - 🔐 登入驗證    login.html      密碼保護，記錄用戶身份（前端 + Apps Script 驗證）
-  - 📝 調整歷史    history.html    記錄誰在何時改了什麼，存入 Sheet 獨立分頁（配合登入）
+  - 🔐 登入驗證    login.html      密碼保護，記錄用戶身份
+  - 📝 調整歷史    history.html    記錄誰在何時改了什麼，存入 Sheet 獨立分頁
+
+  🔲 網店 API 同步（計劃中）
+  - 倉庫調整庫存 → 同步推送 Shopify REST API + HKTVmall Seller API
+  - SKU 需與 Shopify / HKTVmall 完全一致
+  - 遷移 Supabase 後用 Edge Function / Database Trigger 自動觸發
 
   【PDF 匯出方式】
   - 使用 Google Docs / Sheets 作 Template
-  - Apps Script 複製 Template → 填入數據 → 匯出 PDF → 副本自動存入「倉庫報表」資料夾
+  - Apps Script 複製 Template → 填入數據 → 匯出 PDF → 副本存入「倉庫報表」資料夾
 
   【後端遷移計劃】
-  - 現階段：Google Sheets + Apps Script（免費、客戶自控數據）
-  - 計劃：遷移 Supabase（支援高併發、真正資料庫）
-  - 遷移後只需更換 fetch 目標，前端頁面結構不變
+  - 現階段：Google Sheets + Apps Script
+  - 計劃：遷移 Supabase，前端只需改 fetch 目標
 
   【併發保護（現階段）】
-  - Apps Script LockService 寫入鎖（同時只有一人能寫入）
+  - Apps Script LockService 寫入鎖
   - 前端樂觀鎖（寫入前比對版本號，衝突時提示重試）
 
 =================================================================
@@ -85,6 +95,7 @@
 =================================================================
   v1.0  第一階段完成：查貨、庫存調整
   v1.1  修正 iOS Safari iframe 滾動問題（.iframe-box wrapper）
+  v1.2  加入網店存庫即時更新（shop-sync，GitHub Actions 自動 build）
   v2.0  （計劃）第二階段功能上線
   v3.0  （計劃）第三階段功能上線 + Supabase 遷移
 =================================================================
@@ -103,7 +114,6 @@ nav button.coming::after{content:"即將推出";position:absolute;top:-22px;left
 .iframe-box{position:absolute;inset:0;overflow-y:scroll;-webkit-overflow-scrolling:touch;display:none}
 .iframe-box.active{display:block}
 iframe{width:100%;height:100%;border:0;background:#f4f5f7}
-/* 版本標籤 */
 .version{margin-left:auto;color:#4b5563;font-size:11px;white-space:nowrap}
 </style>
 </head>
@@ -115,6 +125,7 @@ iframe{width:100%;height:100%;border:0;background:#f4f5f7}
   <!-- ✅ 第一階段 -->
   <button class="active" data-tab="search">🔍 查貨</button>
   <button data-tab="adjust">📝 庫存調整</button>
+  <button data-tab="shop-sync">🛒 網店存庫即時更新</button>
 
   <!-- 🔲 第二階段（coming soon） -->
   <button class="coming" disabled>📊 庫存總覽</button>
@@ -122,7 +133,7 @@ iframe{width:100%;height:100%;border:0;background:#f4f5f7}
   <button class="coming" disabled>📋 盤點</button>
   <button class="coming" disabled>🗂️ 格位查詢</button>
 
-  <span class="version">v1.1</span>
+  <span class="version">v1.2</span>
 </nav>
 
 <div class="frame-wrap">
@@ -131,6 +142,9 @@ iframe{width:100%;height:100%;border:0;background:#f4f5f7}
   </div>
   <div class="iframe-box" data-tab="adjust">
     <iframe id="frameAdjust" data-src="./adjust.html"></iframe>
+  </div>
+  <div class="iframe-box" data-tab="shop-sync">
+    <iframe id="frameShopSync" data-src="./shop-sync/index.html"></iframe>
   </div>
 </div>
 
@@ -172,11 +186,9 @@ window.addEventListener('message', e => {
     const adjFrame = document.getElementById('frameAdjust');
 
     if (adjFrame.getAttribute('src')) {
-      /* 已載入過，直接切換並發送 */
       switchTab('adjust');
       adjFrame.contentWindow.postMessage(e.data, '*');
     } else {
-      /* 第一次，等載入完再發送 */
       switchTab('adjust');
       adjFrame.addEventListener('load', function onLoad() {
         adjFrame.removeEventListener('load', onLoad);
