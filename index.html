@@ -26,17 +26,27 @@ iframe.active{opacity:1;pointer-events:auto}
 </nav>
 
 <div class="frame-wrap">
-  <iframe id="frameSearch" src="./search.html" data-tab="search" class="active"></iframe>
-  <iframe id="frameAdjust" src="./adjust.html" data-tab="adjust"></iframe>
+  <iframe id="frameSearch" data-tab="search" data-src="./search.html" class="active"></iframe>
+  <iframe id="frameAdjust" data-tab="adjust" data-src="./adjust.html"></iframe>
 </div>
 
 <script>
 const btns   = document.querySelectorAll('nav button');
 const frames = document.querySelectorAll('iframe');
 
+/* 一開始先載入預設 tab（查貨） */
+document.getElementById('frameSearch').src = './search.html';
+
 function switchTab(tabName) {
   btns.forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
-  frames.forEach(f => f.classList.toggle('active', f.dataset.tab === tabName));
+  frames.forEach(f => {
+    const isActive = f.dataset.tab === tabName;
+    f.classList.toggle('active', isActive);
+    /* 第一次切換才設 src，之後不重載 */
+    if (isActive && !f.src) {
+      f.src = f.dataset.src;
+    }
+  });
 }
 
 btns.forEach(b => b.onclick = () => switchTab(b.dataset.tab));
@@ -44,9 +54,9 @@ btns.forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 /* ★ 接收查貨頁「調整此格位」的 postMessage */
 window.addEventListener('message', e => {
   if (e.data?.type === 'navigate' && e.data.sku) {
-    // 切換到調整 tab
+    /* 切換到調整 tab（同時觸發懶載入） */
     switchTab('adjust');
-    // 轉發訊息給 adjust iframe
+    /* 轉發訊息給 adjust iframe */
     const adjFrame = document.getElementById('frameAdjust');
     adjFrame.contentWindow.postMessage(e.data, '*');
   }
