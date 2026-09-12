@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>庫存調整</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;font-family:-apple-system,"Microsoft JhengHei","Noto Sans TC",sans-serif;background:#f4f5f7;color:#222}
+button{cursor:pointer;border:0;border-radius:6px;padding:8px 14px;font-size:14px;background:#2563eb;color:#fff;min-height:40px}
+button.sec{background:#e5e7eb;color:#222}
+button:disabled{opacity:.35;cursor:not-allowed}
+input,select{padding:9px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:15px;background:#fff;width:100%}
+header{background:#1f2937;color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+header h1{margin:0;font-size:18px}
+.status{font-size:13px;color:#9ca3af}
+.wrap{max-width:1000px;margin:0 auto;padding:12px;display:grid;gap:12px}
+.panel{background:#fff;border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.panel h2{margin:0 0 10px;font-size:15px;color:#374151}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:700px){.grid2{grid-template-columns:1fr}}
+.res{padding:8px 10px;border-bottom:1px solid #f3f4f6;cursor:pointer;font-size:14px}
+.res:hover{background:#eff6ff}
+.res b{color:#2563eb}
+.loc{display:inline-block;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;padding:0 6px;font-weight:bold;font-family:monospace;font-size:13px}
+.dim{color:#9ca3af;font-size:12px}
+.miss{color:#dc2626;font-size:13px}
+.skuhead{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;padding:10px 0;border-bottom:2px solid #e5e7eb;margin-bottom:6px}
+.skuhead .skuid{font-size:18px;font-weight:700}
+.skuhead .sum{font-size:22px;font-weight:700;color:#2563eb}
+.rowitem{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px 4px;border-bottom:1px solid #f3f4f6;font-size:14px}
+.rowitem.zero .qty{color:#9ca3af}
+.rowitem.sel{background:#fef3c7;border-radius:6px}
+@keyframes flash{0%,50%{background:#bbf7d0}100%{background:transparent}}
+.rowitem.flash{animation:flash 1.4s}
+.qty{font-size:20px;font-weight:700;margin-left:8px}
+.btns{display:flex;gap:4px}
+.btns button{padding:5px 10px;min-height:32px;font-size:13px}
+.field{margin:10px 0}
+.field label{display:block;font-size:12px;color:#6b7280;margin-bottom:4px;font-weight:600}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+@media(max-width:600px){.g5{grid-template-columns:repeat(3,1fr)}}
+.step{display:inline-flex;align-items:center;gap:4px}
+.step button{width:38px;padding:0;min-height:36px;font-size:18px}
+.step input{width:80px;text-align:center;font-size:18px;font-weight:700;padding:6px 4px}
+.reasons{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.reasons button{background:#e5e7eb;color:#222;min-height:30px;padding:4px 12px;font-size:13px}
+.reasons button.on{background:#2563eb;color:#fff}
+.preview{background:#f4f5f7;border-radius:6px;padding:10px 12px;font-size:14px;line-height:2;margin:10px 0;min-height:44px;border-left:3px solid #2563eb}
+.preview.err{border-left-color:#dc2626;background:#fee2e2;color:#991b1b;line-height:1.6}
+.mn{color:#dc2626;font-weight:700}
+.pl{color:#16a34a;font-weight:700}
+.fh{display:inline-block;padding:2px 10px;border-radius:6px;font-size:13px;color:#fff;margin-right:6px;font-weight:600}
+.fh.sub{background:#dc2626}.fh.add{background:#16a34a}
+.fh.move{background:#2563eb}.fh.addloc{background:#0891b2}.fh.new{background:#6b21a8}
+.abar{padding:10px 12px;border-radius:6px;font-size:14px;margin-top:8px;font-weight:600}
+.abar.ok{background:#dcfce7;color:#166534}
+.abar.bad{background:#fee2e2;color:#991b1b}
+.busy{opacity:.5;pointer-events:none}
+.demo-bar{background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:8px 12px;font-size:13px;color:#92400e;margin-bottom:4px}
+#logTable{width:100%;border-collapse:collapse;font-size:13px}
+#logTable th,#logTable td{padding:7px 8px;border-bottom:1px solid #f3f4f6;text-align:left;vertical-align:top}
+#logTable th{color:#6b7280;font-size:11px;font-weight:600;background:#f9fafb}
+#logTable .mono{font-family:monospace;font-weight:700}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📝 庫存調整</h1>
+  <div style="display:flex;gap:10px;align-items:center">
+    <span class="status" id="updated">載入中…</span>
+    <button class="sec" id="btnRefresh" style="min-height:32px;padding:4px 12px;font-size:13px">↻ 重整</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="demo-bar" id="demoBar">
+    ⚠️ 目前為 <b>Demo 模式</b>（Apps Script 網址未設定）— 所有操作只在畫面上模擬，<b>不會寫入 Sheet</b>。
+    部署好後把 <code>WEB_APP_URL</code> 填進去即可。
+  </div>
+
+  <div class="grid2">
+    <section class="panel">
+      <h2>搜尋 SKU</h2>
+      <input id="aq" placeholder="輸入 SKU 或名稱（例：E0204）" autocomplete="off">
+      <div id="aResults" style="max-height:200px;overflow:auto;margin-top:6px"></div>
+      <div id="aOverview" style="margin-top:4px"></div>
+    </section>
+
+    <section class="panel">
+      <h2>操作表單</h2>
+      <div id="aForm">
+        <div style="color:#9ca3af;text-align:center;padding:32px 0;font-size:14px">
+          在左側搜尋 SKU，點 − + 或調位
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>操作記錄 <span class="dim">（本次 session）</span></h2>
+    <div id="aLog">
+      <div style="color:#9ca3af;text-align:center;padding:20px 0;font-size:14px">尚無記錄</div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ════════════════════════════════════
+   ★ 設定區 — 只需改這裡
+════════════════════════════════════ */
+const SHEET_ID    = '1fjMUqeWHNHDu-F2jBRmW19N_v17zQZR6om22q5wtkSw';
+const SHEET_GID   = '0';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwNAlZrmbPHKywdIUB9Esur7j1cEqyZ3xhqCP0hNrYrwE1JM6ntG2qp409Ic-2m6MBTpw/exec';
+
+const ADJ_SHEET = 'Warehouse Data For System';
+const PIN       = '0000';
+
+const OPERATORS = [
+  {id:'S01', name:'Joey'},
+  {id:'S02', name:'Sam'},
+  {id:'S03', name:'Ray'},
+  {id:'S04', name:'Andrew'},
+  {id:'S05', name:'Tabris the app creator'},
+  {id:'S06', name:'Winse'},
+];
+const REASONS = {
+  sub:    ['出貨無單','損耗','樣品','盤點調整','其他'],
+  add:    ['入庫','退貨','盤點調整','其他'],
+  move:   ['整理','補貨位','盤點調整','其他'],
+  addloc: ['入庫','退貨','盤點調整','其他'],
+  new:    ['入庫','其他'],
+};
+
+/* ════════════════════════════════════
+   資料層
+════════════════════════════════════ */
+let DATA = [];
+const isDemo = () => !WEB_APP_URL || WEB_APP_URL.includes('你的部署ID');
+const $   = s => document.querySelector(s);
+const esc = s => String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const num = v => { const n=parseFloat(String(v??'').replace(/,/g,'')); return isNaN(n)?0:n; };
+
+function parseCSV(t){
+  const rows=[];let f='',q=false,cur=[];
+  for(let i=0;i<t.length;i++){
+    const c=t[i];
+    if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++;}else q=false;}else f+=c;}
+    else if(c==='"')q=true;
+    else if(c===','){cur.push(f);f='';}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;cur.push(f);rows.push(cur);cur=[];f='';}
+    else f+=c;
+  }
+  if(f||cur.length){cur.push(f);rows.push(cur);}
+  return rows.filter(r=>r.some(x=>x!==''));
+}
+
+function normalize(rows){
+  const H=rows[0].map(h=>String(h).trim());
+  const fi=(...ns)=>{for(const n of ns){const i=H.indexOf(n);if(i>=0)return i;}return H.findIndex(h=>ns.some(n=>h.includes(n)));};
+  const C={
+    sku:fi('SKU'), name:fi('名稱'), box:fi('箱數'), perBox:fi('一箱總件數'),
+    pack:fi('盒數'), perPack:fi('一盒總件數'), loose:fi('散件數量'),
+    row:fi('行'), rack:fi('架'), level:fi('層'), note:fi('備註')
+  };
+  const g=(r,k)=>C[k]>=0?String(r[C[k]]??'').trim():'';
+  const out=[];
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i],sku=g(r,'sku');if(!sku)continue;
+    const row=g(r,'row').toUpperCase(),rack=parseInt(num(g(r,'rack')))||1,level=parseInt(num(g(r,'level')))||0;
+    const box=num(g(r,'box')),perBox=num(g(r,'perBox')),pack=num(g(r,'pack')),perPack=num(g(r,'perPack')),loose=num(g(r,'loose'));
+    out.push({
+      rowNo: i + 1,
+      sku, name:g(r,'name'), box, perBox, pack, perPack, loose,
+      total: box*perBox+pack*perPack+loose,
+      row, rack, level, note:g(r,'note'),
+      rackId:row+rack, loc:`${row}-${rack}-${level}`
+    });
+  }
+  return out;
+}
+
+async function load(){
+  $('#updated').textContent='載入中…';
+  try{
+    const url=`${WEB_APP_URL}?sheet=${encodeURIComponent(ADJ_SHEET)}&cachebust=${Date.now()}`;
+    const r=await fetch(url);
+    if(!r.ok) throw new Error('讀取失敗 '+r.status);
+    const d=await r.json();
+    if(!d.ok) throw new Error(d.err||'讀取失敗');
+    DATA=normalize(d.rows);
+    $('#updated').textContent=`更新：${new Date().toLocaleTimeString('zh-TW')} · ${DATA.length} 筆`;
+    if(A_sku) renderOverview();
+  }catch(e){
+    $('#updated').textContent='載入失敗：'+e.message;
+  }
+}
+
+/* ════════════════════════════════════
+   狀態
+════════════════════════════════════ */
+let A_sku='', A_form=null, A_log=[];
+
+const fmtLoc = d=>`${d.row}-${d.rack}-${d.level}`;
+const fmtQty = d=>`${d.box}箱·${d.pack}盒·${d.loose}散`;
+const sumOf  = sku=>DATA.filter(d=>d.sku===sku).reduce((a,d)=>a+d.total,0);
+const getNum = id=>{const el=$(id);return el?Math.max(0,parseInt(el.value)||0):0;};
+const getStr = id=>{const el=$(id);return el?el.value.trim():'';};
+const getLoc = pfx=>{
+  const row=getStr('#'+pfx+'Row').toUpperCase();
+  const rack=parseInt(getStr('#'+pfx+'Rack'))||0;
+  const level=parseInt(getStr('#'+pfx+'Level'))||0;
+  if(!row||!rack||!level)return null;
+  return{row,rack,level,loc:`${row}-${rack}-${level}`};
+};
+
+/* ════════════════════════════════════
+   搜尋
+════════════════════════════════════ */
+function aSearch(){
+  const raw=getStr('#aq'),q=raw.toLowerCase(),R=$('#aResults');
+  if(!q){R.innerHTML='';return;}
+  const m=new Map();
+  DATA.forEach(d=>{
+    if(d.sku.toLowerCase().includes(q)||d.name.toLowerCase().includes(q)){
+      const h=m.get(d.sku)||{sku:d.sku,name:d.name,rows:0,sum:0};
+      h.rows++;h.sum+=d.total;m.set(d.sku,h);
+    }
+  });
+  const hits=[...m.values()].slice(0,30);
+  if(!hits.length){R.innerHTML=`<div class="miss" style="padding:8px">找不到「${esc(raw)}」</div>`;return;}
+  R.innerHTML=hits.map(h=>`
+    <div class="res" data-sku="${esc(h.sku)}">
+      <b>${esc(h.sku)}</b>
+      <span class="dim" style="margin-left:6px">${esc(h.name)}</span><br>
+      <span class="dim">${h.rows} 個格位 · 合計 <b>${h.sum}</b> 件</span>
+    </div>`).join('');
+  R.querySelectorAll('.res').forEach(el=>el.onclick=()=>{
+    A_sku=el.dataset.sku;R.innerHTML='';closeForm();renderOverview();
+  });
+  if(hits.length===1&&hits[0].sku.toLowerCase()===q){
+    A_sku=hits[0].sku;R.innerHTML='';closeForm();renderOverview();
+  }
+}
+
+/* ════════════════════════════════════
+   概覽列表
+════════════════════════════════════ */
+function renderOverview(flashRno){
+  const O=$('#aOverview');if(!O)return;
+  if(!A_sku){O.innerHTML='';return;}
+  const rows=DATA.filter(d=>d.sku===A_sku).sort((a,b)=>(b.total>0)-(a.total>0)||b.total-a.total);
+  if(!rows.length){O.innerHTML='<div class="miss" style="padding:8px">查無此 SKU</div>';return;}
+  O.innerHTML=`
+    <div class="skuhead">
+      <div>
+        <span class="skuid">${esc(A_sku)}</span>
+        <span class="dim" style="margin-left:6px">${esc(rows[0].name)}</span>
+      </div>
+      <div>合計 <span class="sum">${sumOf(A_sku)}</span> 件</div>
+    </div>`+
+  rows.map(d=>`
+    <div class="rowitem ${d.total>0?'':'zero'} ${A_form?.item===d?'sel':''} ${d.rowNo===flashRno?'flash':''}">
+      <div>
+        <span class="loc">${fmtLoc(d)}</span>
+        <span class="qty">${d.total}</span><br>
+        <span class="dim">${fmtQty(d)}${d.note?' · '+esc(d.note):''}</span>
+      </div>
+      <div class="btns">
+        <button data-act="sub" data-rno="${d.rowNo}" ${d.total>0?'':'disabled'}>－</button>
+        <button data-act="add" data-rno="${d.rowNo}">＋</button>
+        <button class="sec" data-act="move" data-rno="${d.rowNo}" ${d.total>0?'':'disabled'}>調位→</button>
+      </div>
+    </div>`).join('')+`
+  <div style="margin-top:10px;display:flex;gap:6px">
+    <button data-act="addloc" style="flex:1;font-size:13px;min-height:34px">＋ 加新格位</button>
+    <button data-act="new" class="sec" style="flex:1;font-size:13px;min-height:34px">＋ 新增 SKU</button>
+  </div>`;
+  O.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{
+    const act=b.dataset.act;
+    const item=b.dataset.rno?DATA.find(d=>d.rowNo===+b.dataset.rno):null;
+    openForm(act,item);
+  });
+}
+
+/* ════════════════════════════════════
+   表單輔助
+════════════════════════════════════ */
+function stepperHtml(id,val,max){
+  return `<span class="step">
+    <button type="button" class="sec" data-sid="${id}" data-sd="-1">−</button>
+    <input id="${id}" type="number" inputmode="numeric" min="0" ${max!=null?'max="'+max+'"':''} value="${val}">
+    <button type="button" class="sec" data-sid="${id}" data-sd="1">＋</button>
+  </span>`;
+}
+function locHtml(pfx){
+  return `<div class="grid3">
+    <div><label>行</label><input id="${pfx}Row" maxlength="2" placeholder="例：J" style="text-transform:uppercase"></div>
+    <div><label>架</label><input id="${pfx}Rack" type="number" min="1" placeholder="1"></div>
+    <div><label>層</label><input id="${pfx}Level" type="number" min="1" placeholder="1"></div>
+  </div>`;
+}
+function qtyHtml(pb,pp){
+  return `<div class="g5">
+    <div class="field"><label>箱數</label><input id="aBox" type="number" min="0" value="0"></div>
+    <div class="field"><label>一箱件數</label><input id="aPerBox" type="number" min="0" value="${pb||''}"></div>
+    <div class="field"><label>盒數</label><input id="aPack" type="number" min="0" value="0"></div>
+    <div class="field"><label>一盒件數</label><input id="aPerPack" type="number" min="0" value="${pp||''}"></div>
+    <div class="field"><label>散件數量</label><input id="aLoose" type="number" min="0" value="0"></div>
+  </div>`;
+}
+function reasonsHtml(type){
+  return (REASONS[type]||['其他']).map((r,i)=>
+    `<button type="button" class="${i===0?'on':''}" data-rv="${esc(r)}">${esc(r)}</button>`).join('');
+}
+
+/* ════════════════════════════════════
+   開啟表單
+════════════════════════════════════ */
+const LABELS={sub:'扣庫',add:'加庫',move:'調位',addloc:'加新格位',new:'新增 SKU'};
+
+function openForm(type,item){
+  A_form={type,item};
+  const F=$('#aForm');
+  const sku=item?item.sku:A_sku;
+  const same=DATA.filter(d=>d.sku===sku);
+  const pb=same.find(d=>d.perBox)?.perBox||'';
+  const pp=same.find(d=>d.perPack)?.perPack||'';
+  const iq=item?item.total:0;
+  const others=item?same.filter(d=>d!==item):[];
+
+  let body='';
+if(type==='sub'||type==='add'){
+    const unitPart=type==='add'?`
+      <div class="field"><label>入庫單位</label>
+        <div class="reasons" id="aUnitSel">
+          <button type="button" class="on" data-unit="loose">散件</button>
+          <button type="button" data-unit="pkt">盒</button>
+          <button type="button" data-unit="box">箱</button>
+        </div>
+      </div>
+      <div id="aPerBoxField" style="display:none" class="field"><label>一箱總件數</label><input id="aPerBox" type="number" min="1" value="${pb||''}"></div>
+      <div id="aPerPackField" style="display:none" class="field"><label>一盒總件數</label><input id="aPerPack" type="number" min="1" value="${pp||''}"></div>`:'';
+    body=`
+      ${unitPart}
+      <div class="field"><label>${type==='sub'?'扣除':'加入'}數量</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${stepperHtml('aQty',1,type==='sub'?iq:null)}
+          <span class="dim">現有 <b>${iq}</b> 件</span>
+        </div>
+      </div>`;
+  }else if(type==='move'){
+    body=`
+      <div class="field"><label>搬移數量</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${stepperHtml('aQty',iq,iq)}
+          <span class="dim">現有 <b>${iq}</b> 件</span>
+        </div>
+      </div>
+      <div class="field"><label>目標格位</label>
+        <select id="aToSel">
+          ${others.map(d=>`<option value="${d.rowNo}">${fmtLoc(d)}（現有 ${d.total}）</option>`).join('')}
+          <option value="__new" ${others.length?'':'selected'}>新格位…</option>
+        </select>
+      </div>
+      <div id="aToNew" ${others.length?'style="display:none"':''}>${locHtml('aTgt')}</div>`;
+  }else if(type==='addloc'){
+    body=`
+      <div class="field"><label>新格位</label>${locHtml('aTgt')}</div>
+      ${qtyHtml(pb,pp)}`;
+  }else{
+    body=`
+      <div class="grid2">
+        <div class="field"><label>SKU ＊</label><input id="aNewSku" value="${esc(A_sku||'')}"></div>
+        <div class="field"><label>名稱</label><input id="aNewName"></div>
+      </div>
+      <div class="field"><label>格位 ＊</label>${locHtml('aTgt')}</div>
+      ${qtyHtml()}`;
+  }
+
+  F.innerHTML=`<div id="aFrm">
+    <div style="margin-bottom:12px">
+      <span class="fh ${type}">${LABELS[type]}</span>
+      ${item?`<b>${esc(sku)}</b> <span class="loc">${fmtLoc(item)}</span>`:`<b>${esc(sku)}</b>`}
+    </div>
+    ${body}
+    <div class="field"><label>原因</label>
+      <div class="reasons" id="aReasons">${reasonsHtml(type)}</div>
+    </div>
+    <div class="field"><label>備註（選填）</label><input id="aNote" placeholder="—"></div>
+    <div class="grid2" style="margin-top:6px">
+      <div class="field"><label>操作者</label>
+        <select id="aOp">${OPERATORS.map(o=>`<option value="${o.id}">${o.id} ${o.name}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label>PIN 碼</label>
+        <input id="aPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••">
+      </div>
+    </div>
+    <div class="preview" id="aPrev">（填好後自動預覽）</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+      <button type="button" class="sec" id="aCancel">取消</button>
+      <button type="button" id="aOk">✓ 確認${isDemo()?'（Demo）':''}</button>
+    </div>
+    <div id="aBar"></div>
+  </div>`;
+
+  F.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{
+    const inp=$('#'+b.dataset.sid);
+    let v=(parseInt(inp.value)||0)+(+b.dataset.sd);
+    v=Math.max(+(inp.min||0),v);
+    if(inp.max!=='')v=Math.min(+inp.max,v);
+    inp.value=v;updatePreview();
+  });
+  F.querySelectorAll('#aUnitSel button').forEach(b=>b.onclick=()=>{
+    F.querySelectorAll('#aUnitSel button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    const u=b.dataset.unit;
+    const pbf=$('#aPerBoxField'),ppf=$('#aPerPackField');
+    if(pbf)pbf.style.display=u==='box'?'':'none';
+    if(ppf)ppf.style.display=u==='pkt'?'':'none';
+    updatePreview();
+  });
+  const toSel=$('#aToSel');
+  if(toSel)toSel.onchange=()=>{
+    const dn=$('#aToNew');
+    if(dn)dn.style.display=toSel.value==='__new'?'':'none';
+    updatePreview();
+  };
+  F.addEventListener('input',updatePreview);
+  $('#aCancel').onclick=closeForm;
+  $('#aOk').onclick=doCommit;
+  renderOverview();updatePreview();
+}
+
+function closeForm(){
+  A_form=null;
+  $('#aForm').innerHTML='<div style="color:#9ca3af;text-align:center;padding:32px 0;font-size:14px">在左側選擇操作</div>';
+  renderOverview();
+}
+
+/* ════════════════════════════════════
+   預覽計算
+════════════════════════════════════ */
+function collect(){
+  if(!A_form)return{err:'無操作'};
+  const{type:t,item}=A_form;
+  const sku=item?item.sku:(t==='new'?getStr('#aNewSku'):A_sku);
+  const iq=item?item.total:0;
+  const tot=sumOf(sku);
+
+  if(t==='sub'||t==='add'){
+    const q=getNum('#aQty');
+    if(q<=0)return{err:'數量要大於 0'};
+    if(t==='sub'&&q>iq)return{err:`庫存不足，現有 ${iq}`};
+
+    let unit='loose',perBox=0,perPack=0,addQty=q;
+    if(t==='add'){
+      unit=$('#aUnitSel .on')?.dataset.unit||'loose';
+      if(unit==='box'){
+        perBox=getNum('#aPerBox')||1;
+        addQty=q*perBox;
+      }else if(unit==='pkt'){
+        perPack=getNum('#aPerPack')||1;
+        addQty=q*perPack;
+      }
+    }
+    const delta=t==='sub'?q:addQty;
+    const after=t==='sub'?iq-delta:iq+delta;
+    const unitLabel=unit==='box'?` (${q}箱×${perBox})`:unit==='pkt'?` (${q}盒×${perPack})`:'';
+    return{ok:true,sku,q,unit,perBox,perPack,addQty,
+      preview:`${fmtLoc(item)} ${iq} → <b>${after}</b> <span class="${t==='sub'?'mn':'pl'}">${t==='sub'?'−'+q:'+'+delta+unitLabel}</span><br>SKU 合計 ${tot} → <b>${t==='sub'?tot-delta:tot+delta}</b>`};
+  }
+  if(t==='move'){
+    const q=getNum('#aQty');
+    if(q<=0)return{err:'數量要大於 0'};
+    if(q>iq)return{err:`庫存不足，現有 ${iq}`};
+    const toSel=$('#aToSel');if(!toSel)return{err:'請選目標格位'};
+    let tgt=null,newLoc=null;
+    if(toSel.value==='__new'){
+      newLoc=getLoc('aTgt');
+      if(!newLoc)return{err:'請填目標格位（行/架/層）'};
+      if(newLoc.loc===fmtLoc(item))return{err:'目標與來源相同'};
+    }else{
+      tgt=DATA.find(d=>d.rowNo===+toSel.value);
+      if(!tgt)return{err:'請選目標格位'};
+    }
+    const tq=tgt?tgt.total:0,toLoc=tgt?fmtLoc(tgt):newLoc.loc;
+    return{ok:true,sku,q,tgt,newLoc,
+      preview:`${fmtLoc(item)} ${iq}→<b>${iq-q}</b> <span class="mn">−${q}</span><br>${toLoc} ${tq}→<b>${tq+q}</b> <span class="pl">+${q}</span>`};
+  }
+  const loc=getLoc('aTgt');if(!loc)return{err:'請填格位（行/架/層）'};
+  const box=getNum('#aBox'),perBox=getNum('#aPerBox');
+  const pack=getNum('#aPack'),perPack=getNum('#aPerPack'),loose=getNum('#aLoose');
+  const total=box*perBox+pack*perPack+loose;
+  if(t==='new'&&!sku)return{err:'SKU 必填'};
+  return{ok:true,sku,loc,box,perBox,pack,perPack,loose,total,
+    preview:`新格位 <span class="loc">${loc.loc}</span> +${total} 件<br>SKU 合計 ${tot} → <b>${tot+total}</b>`};
+}
+
+function updatePreview(){
+  const P=$('#aPrev');if(!P)return;
+  const v=collect();
+  if(v.err){P.className='preview err';P.textContent=v.err;}
+  else{P.className='preview';P.innerHTML=v.preview;}
+}
+function showBar(cls,msg){
+  const b=$('#aBar');if(b)b.innerHTML=`<div class="abar ${cls}">${msg}</div>`;
+}
+
+/* ════════════════════════════════════
+   確認送出
+════════════════════════════════════ */
+async function doCommit(){
+  const v=collect();
+  if(!v.ok){showBar('bad',v.err||'請確認填寫內容');return;}
+  if(getStr('#aPin')!==PIN){showBar('bad','PIN 碼錯誤');return;}
+
+  const{type:t,item}=A_form;
+  const note=getStr('#aNote'),op=getStr('#aOp');
+  const reason=$('#aReasons .on')?.dataset.rv||'';
+  const btn=$('#aOk');btn.disabled=true;btn.textContent='處理中…';
+  const frm=$('#aFrm');if(frm)frm.classList.add('busy');
+
+  if(isDemo()){
+    await new Promise(r=>setTimeout(r,400));
+    applyLocal(v);
+    showBar('ok','✓ Demo 模式套用成功（未寫入 Sheet）');
+    setTimeout(closeForm,1600);
+    return;
+  }
+
+  let payload={type:t,sheet:ADJ_SHEET,note,op,reason};
+  if(t==='sub'||t==='add'){
+    payload.rowNo=item.rowNo;payload.q=v.q;
+    if(t==='add'){
+      payload.unit=v.unit;
+      if(v.unit==='box')payload.perBox=v.perBox;
+      if(v.unit==='pkt')payload.perPack=v.perPack;
+    }
+  }else if(t==='move'){
+    payload.rowNo=item.rowNo;payload.q=v.q;
+    if(v.tgt)payload.toRowNo=v.tgt.rowNo;
+    else Object.assign(payload,{toRow:v.newLoc.row,toRack:v.newLoc.rack,toLevel:v.newLoc.level});
+  }else{
+    payload.sku=v.sku;payload.loc=v.loc;
+    payload.box=v.box;payload.perBox=v.perBox;
+    payload.pack=v.pack;payload.perPack=v.perPack;payload.loose=v.loose;
+    if(t==='new')payload.name=getStr('#aNewName');
+  }
+
+  try{
+    const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(payload)});
+    const data=await res.json();
+    if(!data.ok)throw new Error(data.err||'寫入失敗');
+    applyLocal(v);
+    showBar('ok','✓ 已寫入 Google Sheet');
+    setTimeout(closeForm,1600);
+  }catch(err){
+    showBar('bad','❌ '+err.message);
+    btn.disabled=false;btn.textContent='✓ 確認';
+    if(frm)frm.classList.remove('busy');
+  }
+}
+
+/* ════════════════════════════════════
+   本地即時更新
+════════════════════════════════════ */
+function applyLocal(v){
+  const{type:t,item}=A_form;
+  const now=new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+  const reason=$('#aReasons .on')?.dataset.rv||'';
+  const note=getStr('#aNote');
+  const opName=OPERATORS.find(o=>o.id===getStr('#aOp'))?.name||'';
+  const log=e=>A_log.unshift({time:now,reason,note,op:opName,...e});
+
+  if(t==='sub'){
+    item.total-=v.q;item.loose=Math.max(0,item.loose-v.q);
+    log({type:'扣庫',sku:item.sku,loc:fmtLoc(item),delta:'−'+v.q});
+  }else if(t==='add'){
+    if(v.unit==='box'){item.box+=v.q;item.perBox=v.perBox;}
+    else if(v.unit==='pkt'){item.pack+=v.q;item.perPack=v.perPack;}
+    else{item.loose+=v.addQty;}
+    item.total+=v.addQty;
+    log({type:'加庫',sku:item.sku,loc:fmtLoc(item),delta:'+'+v.addQty});
+  }else if(t==='move'){
+    const fromLoc=fmtLoc(item);
+    item.total-=v.q;item.loose=Math.max(0,item.loose-v.q);
+    let toLoc;
+    if(v.tgt){v.tgt.total+=v.q;v.tgt.loose+=v.q;toLoc=fmtLoc(v.tgt);}
+    else{
+      const nr={...item,...v.newLoc,rackId:v.newLoc.row+v.newLoc.rack,
+        loc:v.newLoc.loc,total:v.q,box:0,pack:0,loose:v.q,
+        rowNo:Math.max(...DATA.map(d=>d.rowNo))+1};
+      DATA.push(nr);toLoc=v.newLoc.loc;
+    }
+    log({type:'調位',sku:item.sku,loc:fromLoc+'→'+toLoc,delta:String(v.q)});
+  }else if(t==='addloc'){
+    const ref=DATA.find(d=>d.sku===v.sku)||{};
+    DATA.push({rowNo:Math.max(...DATA.map(d=>d.rowNo))+1,
+      sku:v.sku,name:ref.name||'',box:v.box,perBox:v.perBox,
+      pack:v.pack,perPack:v.perPack,loose:v.loose,total:v.total,
+      row:v.loc.row,rack:v.loc.rack,level:v.loc.level,
+      rackId:v.loc.row+v.loc.rack,loc:v.loc.loc,note});
+    log({type:'加新格位',sku:v.sku,loc:v.loc.loc,delta:'+'+v.total});
+  }else{
+    const name=getStr('#aNewName');
+    DATA.push({rowNo:Math.max(...DATA.map(d=>d.rowNo))+1,
+      sku:v.sku,name,box:v.box,perBox:v.perBox,
+      pack:v.pack,perPack:v.perPack,loose:v.loose,total:v.total,
+      row:v.loc.row,rack:v.loc.rack,level:v.loc.level,
+      rackId:v.loc.row+v.loc.rack,loc:v.loc.loc,note});
+    A_sku=v.sku;
+    log({type:'新增SKU',sku:v.sku,loc:v.loc.loc,delta:'+'+v.total});
+  }
+  renderLog();
+}
+
+/* ════════════════════════════════════
+   記錄表
+════════════════════════════════════ */
+function renderLog(){
+  const L=$('#aLog');if(!L)return;
+  if(!A_log.length){L.innerHTML='<div style="color:#9ca3af;text-align:center;padding:20px 0;font-size:14px">尚無記錄</div>';return;}
+  L.innerHTML=`<table id="logTable">
+    <thead><tr><th>時間</th><th>操作</th><th>SKU</th><th>格位</th><th>變動</th><th>原因</th><th>備註</th><th>操作者</th></tr></thead>
+    <tbody>${A_log.map(e=>`<tr>
+      <td>${e.time}</td><td>${esc(e.type)}</td>
+      <td class="mono">${esc(e.sku)}</td><td>${esc(e.loc)}</td>
+      <td><b>${esc(e.delta)}</b></td><td>${esc(e.reason)}</td>
+      <td>${esc(e.note)}</td><td>${esc(e.op)}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+/* ════════════════════════════════════
+   初始化
+════════════════════════════════════ */
+$('#demoBar').style.display=isDemo()?'':'none';
+$('#btnRefresh').onclick=load;
+let tmr;
+$('#aq').oninput=()=>{clearTimeout(tmr);tmr=setTimeout(aSearch,200);};
+load();
+
+/* ★ 接收來自查貨頁「調整此格位」的 postMessage */
+window.addEventListener('message', e => {
+  if (e.data?.type === 'navigate' && e.data.sku) {
+    $('#aq').value = e.data.sku;
+    A_sku = e.data.sku;
+    // 等資料載入完再搜尋
+    if (DATA.length) {
+      aSearch();
+    } else {
+      const wait = setInterval(() => {
+        if (DATA.length) { clearInterval(wait); aSearch(); }
+      }, 200);
+    }
+  }
+});
+
+
