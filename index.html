@@ -4,26 +4,125 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>倉庫管理系統</title>
+<!--
+=================================================================
+  倉庫管理系統 — 系統架構說明
+=================================================================
+
+  【前端架構】
+  - 部署平台：Vercel（GitHub 連動，push 即更新）
+  - 入口：index.html（Hub，iframe 切換各功能頁）
+  - 各功能頁：search.html、adjust.html（獨立頁，透過 postMessage 通訊）
+
+  【後端架構】
+  - 現階段：Google Apps Script + Google Sheets
+  - 計劃遷移：Supabase（遷移後只需更換前端 fetch 目標，index.html 結構不變）
+
+  【Google Drive 結構（計劃）】
+  - 主 Sheet：倉庫庫存（存所有 SKU 數據）
+  - 歷史分頁：調整歷史（第三階段，記錄誰在何時改了什麼）
+  - 報表資料夾：倉庫報表（每次匯出 PDF 自動存入副本）
+  - Template：Docs / Sheets 報表模板（供 PDF 匯出使用）
+
+  【Sheet 欄位常量】
+  - COL_SKU       = SKU 編號
+  - COL_BRAND     = 品牌
+  - COL_NAME      = 產品名稱
+  - COL_LOCATION  = 格位（行 + 架 + 層）
+  - COL_BOX_QTY   = 箱數
+  - COL_BOX_EACH  = 一箱總件數
+  - COL_PKT_QTY   = 盒數
+  - COL_PKT_EACH  = 一盒總件數
+  - COL_LOOSE     = 散件
+  - COL_TOTAL     = 總貨數（J 欄，自動計算）
+  - COL_PRICE     = 價錢（待確認是否有此欄）
+  - COL_THRESHOLD = 低庫存門檻
+
+  【Apps Script WEB_APP_URL】
+  - 填入已部署的 Apps Script 網址
+  - 所有頁面共用同一個 endpoint
+  - doGet  = 讀取資料
+  - doPost = 寫入 / 調整庫存
+
+  【通訊方式】
+  - index.html → iframe：postMessage
+  - 格式：{ type: 'navigate', sku: '...', ... }
+
+=================================================================
+  功能規劃
+=================================================================
+
+  ✅ 第一階段（已完成）
+  - 🔍 查貨        search.html  掃 / 輸入 SKU 查詢格位及庫存
+  - 📝 庫存調整    adjust.html  加庫 / 扣庫，支援箱、盒、散件，更新 J 欄總貨數
+
+  🔲 第二階段（計劃中）
+  - 📊 庫存總覽    overview.html   所有 SKU 表格，支援匯出 CSV / PDF（Google Sheets Template，副本存 Drive）
+  - ⚠️ 低庫存警示  lowstock.html   低於門檻標紅，獨立 tab 顯示
+  - 📋 盤點模式    stocktake.html  輸入 SKU 對比 Sheet 數量，確認後寫入
+  - 🗂️ 格位查詢    location.html   輸入行架層，列出該格所有 SKU 及數量
+
+  🔲 第三階段（計劃中）
+  - 📦 批量調整    batch.html      一次調整多個 SKU
+  - 🔐 登入驗證    login.html      密碼保護，記錄用戶身份（前端 + Apps Script 驗證）
+  - 📝 調整歷史    history.html    記錄誰在何時改了什麼，存入 Sheet 獨立分頁（配合登入）
+
+  【PDF 匯出方式】
+  - 使用 Google Docs / Sheets 作 Template
+  - Apps Script 複製 Template → 填入數據 → 匯出 PDF → 副本自動存入「倉庫報表」資料夾
+
+  【後端遷移計劃】
+  - 現階段：Google Sheets + Apps Script（免費、客戶自控數據）
+  - 計劃：遷移 Supabase（支援高併發、真正資料庫）
+  - 遷移後只需更換 fetch 目標，前端頁面結構不變
+
+  【併發保護（現階段）】
+  - Apps Script LockService 寫入鎖（同時只有一人能寫入）
+  - 前端樂觀鎖（寫入前比對版本號，衝突時提示重試）
+
+=================================================================
+  更新記錄
+=================================================================
+  v1.0  第一階段完成：查貨、庫存調整
+  v1.1  修正 iOS Safari iframe 滾動問題（.iframe-box wrapper）
+  v2.0  （計劃）第二階段功能上線
+  v3.0  （計劃）第三階段功能上線 + Supabase 遷移
+=================================================================
+-->
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;font-family:-apple-system,"Microsoft JhengHei","Noto Sans TC",sans-serif;background:#1f2937}
-nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#1f2937;border-bottom:1px solid #374151}
+nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#1f2937;border-bottom:1px solid #374151;flex-wrap:wrap}
 nav .logo{color:#fff;font-size:15px;font-weight:700;margin-right:8px;white-space:nowrap}
 nav button{cursor:pointer;border:0;border-radius:6px;padding:8px 18px;font-size:14px;background:#374151;color:#9ca3af;min-height:36px;transition:background .15s,color .15s}
 nav button.active{background:#2563eb;color:#fff}
 nav button:hover:not(.active){background:#4b5563;color:#fff}
+nav button.coming{cursor:default;opacity:.5;position:relative}
+nav button.coming::after{content:"即將推出";position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:#374151;color:#9ca3af;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;pointer-events:none}
 .frame-wrap{position:relative;width:100%;height:calc(100vh - 53px);overflow:hidden}
 .iframe-box{position:absolute;inset:0;overflow-y:scroll;-webkit-overflow-scrolling:touch;display:none}
 .iframe-box.active{display:block}
 iframe{width:100%;height:100%;border:0;background:#f4f5f7}
+/* 版本標籤 */
+.version{margin-left:auto;color:#4b5563;font-size:11px;white-space:nowrap}
 </style>
 </head>
 <body>
 
 <nav>
   <span class="logo">📦 倉庫管理</span>
+
+  <!-- ✅ 第一階段 -->
   <button class="active" data-tab="search">🔍 查貨</button>
   <button data-tab="adjust">📝 庫存調整</button>
+
+  <!-- 🔲 第二階段（coming soon） -->
+  <button class="coming" disabled>📊 庫存總覽</button>
+  <button class="coming" disabled>⚠️ 低庫存</button>
+  <button class="coming" disabled>📋 盤點</button>
+  <button class="coming" disabled>🗂️ 格位查詢</button>
+
+  <span class="version">v1.1</span>
 </nav>
 
 <div class="frame-wrap">
@@ -36,10 +135,15 @@ iframe{width:100%;height:100%;border:0;background:#f4f5f7}
 </div>
 
 <script>
-const btns   = document.querySelectorAll('nav button');
-const boxes  = document.querySelectorAll('.iframe-box');
+/* =============================================================
+   Tab 切換邏輯
+   - boxes：.iframe-box wrapper（解決 iOS Safari 滾動問題）
+   - iframe 懶載入：第一次切換才載入，避免一次載入全部
+   ============================================================= */
+const btns  = document.querySelectorAll('nav button:not(.coming)');
+const boxes = document.querySelectorAll('.iframe-box');
 
-/* 一開始先載入預設 tab（查貨） */
+/* 預載入第一個 tab */
 document.getElementById('frameSearch').src = './search.html';
 
 function switchTab(tabName) {
@@ -58,15 +162,21 @@ function switchTab(tabName) {
 
 btns.forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 
-/* ★ 接收查貨頁「調整此格位」的 postMessage */
+/* =============================================================
+   postMessage 通訊
+   - 來源：查貨頁「調整此格位」按鈕
+   - 動作：切換至庫存調整 tab，並傳入 SKU 資料
+   ============================================================= */
 window.addEventListener('message', e => {
   if (e.data?.type === 'navigate' && e.data.sku) {
     const adjFrame = document.getElementById('frameAdjust');
 
     if (adjFrame.getAttribute('src')) {
+      /* 已載入過，直接切換並發送 */
       switchTab('adjust');
       adjFrame.contentWindow.postMessage(e.data, '*');
     } else {
+      /* 第一次，等載入完再發送 */
       switchTab('adjust');
       adjFrame.addEventListener('load', function onLoad() {
         adjFrame.removeEventListener('load', onLoad);
