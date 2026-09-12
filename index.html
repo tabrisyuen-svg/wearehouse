@@ -12,9 +12,10 @@ nav .logo{color:#fff;font-size:15px;font-weight:700;margin-right:8px;white-space
 nav button{cursor:pointer;border:0;border-radius:6px;padding:8px 18px;font-size:14px;background:#374151;color:#9ca3af;min-height:36px;transition:background .15s,color .15s}
 nav button.active{background:#2563eb;color:#fff}
 nav button:hover:not(.active){background:#4b5563;color:#fff}
-.frame-wrap{position:relative;width:100%;height:calc(100vh - 53px)}
-iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#f4f5f7;opacity:0;pointer-events:none;transition:opacity .15s;overflow-y:scroll;-webkit-overflow-scrolling:touch}
-iframe.active{opacity:1;pointer-events:auto}
+.frame-wrap{position:relative;width:100%;height:calc(100vh - 53px);overflow:hidden}
+.iframe-box{position:absolute;inset:0;overflow-y:scroll;-webkit-overflow-scrolling:touch;display:none}
+.iframe-box.active{display:block}
+iframe{width:100%;height:100%;border:0;background:#f4f5f7}
 </style>
 </head>
 <body>
@@ -26,25 +27,31 @@ iframe.active{opacity:1;pointer-events:auto}
 </nav>
 
 <div class="frame-wrap">
-  <iframe id="frameSearch" data-tab="search" data-src="./search.html" class="active" scrolling="yes"></iframe>
-  <iframe id="frameAdjust" data-tab="adjust" data-src="./adjust.html" scrolling="yes"></iframe>
+  <div class="iframe-box active" data-tab="search">
+    <iframe id="frameSearch" data-src="./search.html"></iframe>
+  </div>
+  <div class="iframe-box" data-tab="adjust">
+    <iframe id="frameAdjust" data-src="./adjust.html"></iframe>
+  </div>
 </div>
 
 <script>
 const btns   = document.querySelectorAll('nav button');
-const frames = document.querySelectorAll('iframe');
+const boxes  = document.querySelectorAll('.iframe-box');
 
 /* 一開始先載入預設 tab（查貨） */
 document.getElementById('frameSearch').src = './search.html';
 
 function switchTab(tabName) {
   btns.forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
-  frames.forEach(f => {
-    const isActive = f.dataset.tab === tabName;
-    f.classList.toggle('active', isActive);
-    /* ✅ 修正1：用 getAttribute 判斷，避免 about:blank 誤判 */
-    if (isActive && !f.getAttribute('src')) {
-      f.src = f.dataset.src;
+  boxes.forEach(box => {
+    const isActive = box.dataset.tab === tabName;
+    box.classList.toggle('active', isActive);
+    if (isActive) {
+      const iframe = box.querySelector('iframe');
+      if (!iframe.getAttribute('src')) {
+        iframe.src = iframe.dataset.src;
+      }
     }
   });
 }
@@ -56,13 +63,10 @@ window.addEventListener('message', e => {
   if (e.data?.type === 'navigate' && e.data.sku) {
     const adjFrame = document.getElementById('frameAdjust');
 
-    /* ✅ 修正2：判斷 iframe 是否已載入，決定何時發 postMessage */
     if (adjFrame.getAttribute('src')) {
-      /* 已載入過，切換 tab 後直接發 */
       switchTab('adjust');
       adjFrame.contentWindow.postMessage(e.data, '*');
     } else {
-      /* 第一次，等載入完再發 */
       switchTab('adjust');
       adjFrame.addEventListener('load', function onLoad() {
         adjFrame.removeEventListener('load', onLoad);
