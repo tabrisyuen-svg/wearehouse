@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>網店存庫即時更新</title>
+<!--
+=================================================================
+  shop-sync.html — 網店存庫即時更新
+=================================================================
+  【現階段】Demo 假數據，所有數據寫死在 INITIAL_DATA
+  【遷移 Supabase】替換 loadData()，改為 fetch Supabase REST API
+  【接入 Shopify API】替換 handleSync()，加入 POST /api/sync-shopify
+  【接入 HKTVmall API】替換 handleSync()，加入 POST /api/sync-hktv
+
+  SKU 需與 Shopify / HKTVmall 完全一致才能對應同步
+=================================================================
+-->
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:system-ui,-apple-system,'Microsoft JhengHei',sans-serif;
+  background:#f8fafc;color:#1e293b;
+  display:flex;flex-direction:column;height:100vh;overflow:hidden;
+}
+/* Header */
+.header{
+  background:#fff;border-bottom:1px solid #e2e8f0;
+  padding:8px 24px;min-height:60px;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.04);
+  flex-wrap:wrap;gap:8px;
+}
+.header-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.header-right{display:flex;align-items:center;gap:8px}
+.logo{font-size:16px;font-weight:800;color:#0f172a;letter-spacing:-.4px}
+.badge{
+  font-size:11px;border-radius:6px;padding:2px 9px;
+  white-space:nowrap;display:inline-flex;align-items:center;gap:4px;
+  border:1px solid transparent;
+}
+.bg{color:#94a3b8;background:#f1f5f9;border-color:#e2e8f0}
+.bb{color:#0369a1;background:#f0f9ff;border-color:#bae6fd;transition:all .4s}
+.bb.flash{color:#fff!important;background:#2563eb!important;border-color:#2563eb!important}
+.br{color:#dc2626;background:#fef2f2;border-color:#fecaca;cursor:pointer;font-weight:700}
+.br:hover{background:#dc2626;color:#fff;border-color:#dc2626}
+.bs{color:#64748b;background:#f8fafc;border-color:#e2e8f0}
+.tbtn{
+  padding:5px 14px;border-radius:7px;border:none;cursor:pointer;
+  font-size:12px;font-weight:700;background:#f1f5f9;color:#64748b;transition:all .15s;
+}
+.tbtn.active{background:#2563eb;color:#fff}
+.sbtn{
+  padding:5px 14px;border-radius:7px;border:1px solid #bfdbfe;cursor:pointer;
+  font-size:12px;font-weight:700;background:#eff6ff;color:#2563eb;
+  display:flex;align-items:center;gap:5px;margin-left:6px;
+}
+/* Notice */
+.notice{
+  background:#fffbeb;border-bottom:1px solid #fde68a;
+  padding:7px 24px;flex-shrink:0;font-size:12px;color:#92400e;line-height:1.5;
+}
+/* Search */
+.sbar{background:#fff;border-bottom:1px solid #e2e8f0;padding:10px 24px;flex-shrink:0}
+.swrap{position:relative;max-width:340px}
+.sicon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;font-size:13px}
+.sinput{
+  width:100%;padding:8px 34px;border:1.5px solid #e2e8f0;border-radius:9px;
+  font-size:13px;color:#1e293b;background:#f8fafc;outline:none;
+}
+.sinput:focus{border-color:#3b82f6}
+.sclear{
+  position:absolute;right:9px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;color:#94a3b8;font-size:16px;display:none;
+}
+.sresult{margin-top:6px;font-size:12px;color:#64748b;display:none}
+/* Table */
+.twrap{flex:1;overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:920px}
+thead th{
+  padding:11px 14px;font-size:11px;font-weight:700;color:#64748b;
+  text-transform:uppercase;letter-spacing:.06em;
+  background:#f8fafc;border-bottom:2px solid #e2e8f0;
+  white-space:nowrap;text-align:center;
+}
+thead th.tl{text-align:left}
+.dl{border-left:2px solid #e2e8f0}
+tbody tr{transition:background .1s}
+tbody td{padding:10px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+tfoot td{padding:10px 12px;background:#f1f5f9}
+/* SKU */
+.sku{
+  font-family:monospace;font-size:12px;color:#2563eb;
+  background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;padding:2px 8px;
+}
+.lbadge{
+  display:inline-flex;align-items:center;gap:3px;font-size:10px;
+  color:#dc2626;background:#fef2f2;border:1px solid #fecaca;
+  border-radius:5px;padding:1px 6px;font-weight:700;white-space:nowrap;margin-left:6px;
+}
+/* Central edit */
+.cdisp{
+  display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+  padding:4px 10px;border-radius:8px;justify-content:center;transition:background .1s;
+}
+.cdisp:hover{background:#f1f5f9}
+.cewrap{display:flex;align-items:center;gap:4px;justify-content:center}
+.cinput{
+  width:64px;background:#fff;border:1.5px solid #3b82f6;border-radius:6px;
+  color:#1e293b;padding:3px 6px;font-size:14px;font-weight:700;text-align:center;outline:none;
+}
+.ibtn{background:none;border:none;cursor:pointer;padding:2px;font-size:15px}
+.ibtn.ok{color:#059669}
+.ibtn.cx{color:#dc2626}
+/* Platform */
+.pcell{display:flex;flex-direction:column;align-items:center;gap:4px}
+.togbtn{padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer;transition:all .15s}
+.togbtn.on{border:1px solid #bbf7d0;background:#f0fdf4;color:#059669}
+.togbtn.off{border:1px solid #fecdd3;background:#fff1f2;color:#dc2626}
+.ltag{font-size:9px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:4px;padding:1px 5px;font-weight:700}
+.ptag{font-size:9px;background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;border-radius:4px;padding:1px 5px;font-weight:700}
+/* Delta */
+.delta{display:flex;align-items:center;gap:2px;font-size:12px;justify-content:center}
+.delta.up{color:#059669;font-weight:600}
+.delta.dn{color:#dc2626;font-weight:600}
+.delta.nt{color:#9ca3af}
+/* Modal */
+.moverlay{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center}
+.moverlay.open{display:flex}
+.mbackdrop{position:absolute;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(3px)}
+.mbox{
+  position:relative;background:#fff;border-radius:16px;
+  box-shadow:0 24px 64px rgba(0,0,0,.2);
+  width:100%;max-width:520px;margin:0 16px;overflow:hidden;
+}
+.mhdr{
+  background:#fef2f2;border-bottom:1px solid #fecaca;
+  padding:16px 20px;display:flex;align-items:center;justify-content:space-between;
+}
+.mtitle{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:#dc2626}
+.mcnt{font-size:11px;background:#dc2626;color:#fff;border-radius:99px;padding:1px 9px;font-weight:800}
+.mxbtn{background:none;border:none;cursor:pointer;color:#64748b;font-size:18px;padding:4px;border-radius:6px}
+.mxbtn:hover{background:#f1f5f9}
+.mbody{max-height:360px;overflow-y:auto}
+.mitem{
+  padding:14px 20px;border-bottom:1px solid #f1f5f9;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.mitem:last-child{border-bottom:none}
+.mitem:nth-child(even){background:#fafbfc}
+.mftr{
+  padding:12px 20px;border-top:1px solid #f1f5f9;background:#f8fafc;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.mcbtn{font-size:12px;font-weight:700;color:#fff;background:#dc2626;border:none;border-radius:7px;padding:6px 16px;cursor:pointer}
+/* App footer */
+.afooter{
+  background:#fff;border-top:1px solid #e2e8f0;padding:8px 24px;
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+.afooter span{font-size:11px;color:#94a3b8}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.spin{display:inline-block;animation:spin .7s linear}
+</style>
+</head>
+<body>
+
+<!-- Modal -->
+<div class="moverlay" id="modal">
+  <div class="mbackdrop" onclick="closeModal()"></div>
+  <div class="mbox">
+    <div class="mhdr">
+      <div class="mtitle">⚠️ 庫存不足警示 <span class="mcnt" id="modal-count">0</span></div>
+      <button class="mxbtn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="mbody" id="modal-body"></div>
+    <div class="mftr">
+      <span style="font-size:11px;color:#94a3b8">建議盡快補貨或停用相關平台以避免超賣</span>
+      <button class="mcbtn" onclick="closeModal()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <span class="logo">📦 庫存管理系統</span>
+    <span class="badge bg">上次同步 <span id="last-sync">08:30</span></span>
+    <span class="badge bb" id="sync-badge"></span>
+    <button class="badge br" id="ls-badge" onclick="openModal()" style="display:none"></button>
+    <span class="badge bs" id="dis-badge" style="display:none"></span>
+  </div>
+  <div class="header-right">
+    <span style="font-size:11px;color:#94a3b8">變化區間</span>
+    <button class="tbtn active" id="btn-h24" onclick="setFilter('h24')">24h</button>
+    <button class="tbtn" id="btn-h48" onclick="setFilter('h48')">48h</button>
+    <button class="tbtn" id="btn-h72" onclick="setFilter('h72')">72h</button>
+    <button class="sbtn" id="sync-btn" onclick="handleSync()">↻ 立即同步</button>
+  </div>
+</div>
+
+<!-- Notice -->
+<div class="notice">
+  ⚡ 中央倉為唯一數量來源 — <strong>啟用中</strong>的平台每 5–15 分鐘自動同步；<strong>已停用</strong>的平台已推 0，停止接收同步 · <strong>每天 08:30 (GMT+8)</strong> 自動更新中央倉數量
+</div>
+
+<!-- Search -->
+<div class="sbar">
+  <div class="swrap">
+    <span class="sicon">🔍</span>
+    <input class="sinput" id="sinput" type="text" placeholder="搜尋 SKU 或產品名稱…" oninput="handleSearch(this.value)">
+    <button class="sclear" id="sclear" onclick="clearSearch()">✕</button>
+  </div>
+  <div class="sresult" id="sresult"></div>
+</div>
+
+<!-- Table -->
+<div class="twrap">
+  <table>
+    <thead>
+      <tr>
+        <th class="tl" style="width:110px">SKU</th>
+        <th class="tl" style="width:170px">產品名稱</th>
+        <th style="width:80px">更新時間</th>
+        <th class="dl" style="width:130px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
+            <span style="color:#2563eb;font-size:9px">✏️ 可編輯</span>
+            <span>中央倉數量</span>
+          </div>
+        </th>
+        <th id="dh" style="width:65px">24h 變化</th>
+        <th class="dl" style="width:120px"><span style="color:#d97706">🛍 HKTV Hape</span></th>
+        <th style="width:120px"><span style="color:#ea580c">🛍 HKTV Ricoutlet</span></th>
+        <th style="width:120px"><span style="color:#059669">📦 Eurekakids</span></th>
+        <th style="width:120px"><span style="color:#0284c7">📦 Ricoutlet</span></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+    <tfoot id="tfoot"></tfoot>
+  </table>
+</div>
+
+<!-- Footer -->
+<div class="afooter">
+  <span id="finfo"></span>
+  <span>created by Tabris Yuen @2026</span>
+</div>
+
+<script>
+/* =============================================================
+  【現階段】Demo 假數據
+  【遷移 Supabase】替換 loadData()，改為 fetch Supabase REST API：
+    const res = await fetch('https://xxx.supabase.co/rest/v1/inventory', {
+      headers: { apikey: 'YOUR_KEY', Authorization: 'Bearer YOUR_KEY' }
+    });
+    data = await res.json();
+  【接入 Shopify API】handleSync() 加入：
+    await fetch('/api/sync-shopify', { method:'POST' })
+  【接入 HKTVmall API】handleSync() 加入：
+    await fetch('/api/sync-hktv', { method:'POST' })
+  ============================================================= */
+
+const INITIAL_DATA = [
+  { sku:'HAPE-001', name:'木製小火車套裝',  updated:'14:32', central:145, h24:-13, h48:-27, h72:-41, platforms:{ hktv_hape:true,  hktv_ric:true,  eurekakids:true,  ricoutlet:true  } },
+  { sku:'HAPE-002', name:'彩虹疊疊樂',      updated:'13:15', central: 89, h24:  5, h48: -8, h72:-12, platforms:{ hktv_hape:true,  hktv_ric:false, eurekakids:true,  ricoutlet:false } },
+  { sku:'HAPE-003', name:'木質牛油果玩具',  updated:'12:50', central:210, h24: -6, h48:-18, h72:-30, platforms:{ hktv_hape:true,  hktv_ric:true,  eurekakids:false, ricoutlet:true  } },
+  { sku:'HAPE-004', name:'感統觸覺球組',    updated:'11:40', central:  1, h24:-20, h48:-35, h72:-50, platforms:{ hktv_hape:true,  hktv_ric:true,  eurekakids:true,  ricoutlet:true  } },
+  { sku:'HAPE-005', name:'嬰兒木製搖搖馬', updated:'10:22', central:  0, h24:  0, h48: -4, h72:-10, platforms:{ hktv_hape:true,  hktv_ric:false, eurekakids:true,  ricoutlet:true  } },
+  { sku:'EUKA-001', name:'磁力拼圖組合',    updated:'09:55', central:182, h24: 12, h48:  8, h72: 20, platforms:{ hktv_hape:false, hktv_ric:true,  eurekakids:true,  ricoutlet:true  } },
+  { sku:'EUKA-002', name:'科學實驗套裝',    updated:'09:10', central: 55, h24: -3, h48: -9, h72:-14, platforms:{ hktv_hape:true,  hktv_ric:true,  eurekakids:true,  ricoutlet:false } },
+  { sku:'EUKA-003', name:'兒童畫板套裝',    updated:'08:40', central:  2, h24: -1, h48: -5, h72: -9, platforms:{ hktv_hape:true,  hktv_ric:true,  eurekakids:true,  ricoutlet:true  } },
+];
+
+const PKEYS = ['hktv_hape','hktv_ric','eurekakids','ricoutlet'];
+const PLABELS = { hktv_hape:'HKTV Hape', hktv_ric:'HKTV Ricoutlet', eurekakids:'Eurekakids', ricoutlet:'Ricoutlet' };
+
+let data       = JSON.parse(JSON.stringify(INITIAL_DATA));
+let timeFilter = 'h24';
+let search     = '';
+let editingSku = null;
+let nextSync   = getNext0830HKT();
+let lastSync   = '08:30';
+
+/* ── Scheduled sync helpers ── */
+function getNext0830HKT() {
+  const now = Date.now(), off = 8*3600000;
+  const n = new Date(now + off);
+  const t = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate(), 0, 30, 0, 0);
+  return t > now ? t : t + 86400000;
+}
+function formatCD(ms) {
+  if (ms <= 0) return '同步中…';
+  const h = Math.floor(ms/3600000), m = Math.floor((ms%3600000)/60000);
+  return h > 0 ? `${h}h ${m}m 後` : `${m}m 後`;
+}
+function syncLabel(next) {
+  const hn = new Date(Date.now()+8*3600000), hx = new Date(next+8*3600000);
+  return hn.getUTCDate()===hx.getUTCDate()&&hn.getUTCMonth()===hx.getUTCMonth() ? '今天 08:30' : '明天 08:30';
+}
+function hktNow() {
+  const d = new Date(Date.now()+8*3600000);
+  return `${d.getUTCHours().toString().padStart(2,'0')}:${d.getUTCMinutes().toString().padStart(2,'0')}`;
+}
+
+/* ── Countdown ── */
+function tick() {
+  const ms = nextSync - Date.now();
+  const badge = document.getElementById('sync-badge');
+  if (ms <= 0) {
+    lastSync = hktNow();
+    document.getElementById('last-sync').textContent = lastSync;
+    badge.textContent = '✅ 定時同步完成';
+    badge.classList.add('flash');
+    nextSync = getNext0830HKT();
+    setTimeout(() => { badge.classList.remove('flash'); updateSyncBadge(); }, 4000);
+  } else {
+    updateSyncBadge();
+  }
+}
+function updateSyncBadge() {
+  document.getElementById('sync-badge').innerHTML = `🕐 定時同步 ${syncLabel(nextSync)} · ${formatCD(nextSync-Date.now())}`;
+}
+setInterval(tick, 30000);
+tick();
+
+/* ── Data helpers ── */
+function filtered() {
+  const q = search.toLowerCase();
+  return data.filter(r => r.sku.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+}
+function lowItems() { return data.filter(r => r.central < 2); }
+
+/* ── Render ── */
+function render() {
+  const rows  = filtered();
+  const lows  = lowItems();
+  const disCnt = data.reduce((t,r) => t + PKEYS.filter(k=>!r.platforms[k]).length, 0);
+
+  /* badges */
+  const lsBadge = document.getElementById('ls-badge');
+  lsBadge.style.display = lows.length ? '' : 'none';
+  lsBadge.textContent   = `⚠️ ${lows.length} 項庫存不足`;
+
+  const dBadge = document.getElementById('dis-badge');
+  dBadge.style.display = disCnt ? '' : 'none';
+  dBadge.textContent   = `⛔ ${disCnt} 個平台已停用`;
+
+  /* delta header */
+  document.getElementById('dh').textContent = `${timeFilter==='h24'?'24h':timeFilter==='h48'?'48h':'72h'} 變化`;
+
+  /* search result */
+  const sr = document.getElementById('sresult');
+  if (search) {
+    sr.style.display = '';
+    sr.innerHTML = `找到 <strong style="color:#2563eb">${rows.length}</strong> 筆結果`
+      + (rows.length===0 ? `<span style="color:#ef4444;margin-left:6px">— 找不到「${search}」</span>` : '');
+  } else { sr.style.display = 'none'; }
+
+  /* tbody */
+  document.getElementById('tbody').innerHTML = rows.length === 0
+    ? `<tr><td colspan="9" style="text-align:center;padding:48px 0;color:#94a3b8;font-size:14px">找不到符合「${search}」的結果</td></tr>`
+    : rows.map((row, i) => {
+        const low    = row.central < 2;
+        const rowBg  = low ? '#fff9f9' : i%2===0 ? '#fff' : '#fafbfc';
+        const hovBg  = low ? '#fff0f0' : '#eff6ff';
+        const v      = row[timeFilter];
+        const delta  = v===0
+          ? `<span class="delta nt">— 0</span>`
+          : v>0 ? `<span class="delta up">↑ +${v}</span>`
+                : `<span class="delta dn">↓ ${v}</span>`;
+
+        const central = editingSku === row.sku
+          ? `<div class="cewrap">
+              <input class="cinput" id="ei-${row.sku}" type="number" value="${row.central}"
+                onkeydown="ek(event,'${row.sku}')" onblur="ce('${row.sku}')">
+              <button class="ibtn ok" onmousedown="ce('${row.sku}')">✓</button>
+              <button class="ibtn cx" onmousedown="xe('${row.sku}')">✕</button>
+            </div>`
+          : `<div class="cdisp" onclick="se('${row.sku}')">
+              <span style="font-size:16px;font-weight:800;color:${low?'#dc2626':'#0f172a'}">${row.central}</span>
+              <span style="font-size:11px;color:${low?'#dc2626':'#94a3b8'}">✏</span>
+            </div>`;
+
+        const platCols = PKEYS.map((k,pi) => {
+          const on = row.platforms[k];
+          const bg = on ? 'transparent' : '#f8fafc';
+          const cell = on
+            ? `<div class="pcell">
+                <div style="display:flex;align-items:center;gap:4px">
+                  <span style="font-size:14px;font-weight:700;color:${low?'#dc2626':'#334155'}">${row.central}</span>
+                  ${low?'<span class="ltag">低庫存</span>':''}
+                </div>
+                <button class="togbtn on" onclick="tp('${row.sku}','${k}')">啟用中</button>
+              </div>`
+            : `<div class="pcell">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+                  <span style="font-size:16px;font-weight:700;color:#cbd5e1">—</span>
+                  <span class="ptag">已推 0</span>
+                </div>
+                <button class="togbtn off" onclick="tp('${row.sku}','${k}')">已停用</button>
+              </div>`;
+          return `<td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle;text-align:center;${pi===0?'border-left:2px solid #e2e8f0;':''}background:${bg}">${cell}</td>`;
+        }).join('');
+
+        return `<tr style="background:${rowBg}"
+          onmouseenter="this.style.background='${hovBg}'"
+          onmouseleave="this.style.background='${rowBg}'">
+          <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;border-left:3px solid ${low?'#fca5a5':'transparent'}">
+            <span class="sku">${row.sku}</span>
+          </td>
+          <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9">
+            <span style="font-size:13px;color:#1e293b">${row.name}</span>
+            ${low?'<span class="lbadge">⚠ 庫存不足</span>':''}
+          </td>
+          <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:center">
+            <span style="font-size:12px;color:#94a3b8">${row.updated}</span>
+          </td>
+          <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:center;border-left:2px solid #e2e8f0;background:${low?'#fff0f0':'#f8faff'}">
+            ${central}
+          </td>
+          <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:center">${delta}</td>
+          ${platCols}
+        </tr>`;
+      }).join('');
+
+  /* tfoot */
+  const tot = rows.reduce((s,r)=>s+r.central,0);
+  const platTots = PKEYS.map((k,pi) => {
+    const t = rows.reduce((s,r)=>s+(r.platforms[k]?r.central:0),0);
+    const d = rows.filter(r=>!r.platforms[k]).length;
+    return `<td style="padding:10px 12px;background:#f1f5f9;text-align:center;font-weight:700;color:#1e293b;${pi===0?'border-left:2px solid #e2e8f0;':''}">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
+        <span>${t}</span>
+        ${d?`<span style="font-size:9px;color:#94a3b8">${d} 項停用</span>`:''}
+      </div>
+    </td>`;
+  }).join('');
+  document.getElementById('tfoot').innerHTML = `<tr style="border-top:2px solid #e2e8f0">
+    <td colspan="3" style="padding:10px 12px;background:#f1f5f9;font-size:12px;font-weight:700;color:#64748b">合計</td>
+    <td style="padding:10px 12px;background:#f1f5f9;text-align:center;font-weight:800;font-size:15px;color:#0f172a;border-left:2px solid #e2e8f0">${tot}</td>
+    <td style="padding:10px 12px;background:#f1f5f9"></td>
+    ${platTots}
+  </tr>`;
+
+  /* footer */
+  document.getElementById('finfo').innerHTML = `共 ${rows.length} 個 SKU · 低庫存警示：數量 &lt; 2 · 點擊「X 項庫存不足」可查看詳情`;
+
+  /* focus edit input */
+  if (editingSku) {
+    const el = document.getElementById(`ei-${editingSku}`);
+    if (el) { el.focus(); el.select(); }
+  }
+}
+
+/* ── Edit ── */
+function se(sku)  { editingSku = sku; render(); }
+function ce(sku)  {
+  const el = document.getElementById(`ei-${sku}`);
+  if (el) { const v = Math.max(0, Number(el.value)||0); data = data.map(r=>r.sku===sku?{...r,central:v}:r); }
+  editingSku = null; render();
+}
+function xe(sku)  { editingSku = null; render(); }
+function ek(e,sku){ if(e.key==='Enter') ce(sku); if(e.key==='Escape') xe(sku); }
+
+/* ── Toggle platform ── */
+function tp(sku, key) {
+  data = data.map(r => r.sku===sku ? {...r, platforms:{...r.platforms,[key]:!r.platforms[key]}} : r);
+  render();
+}
+
+/* ── Time filter ── */
+function setFilter(t) {
+  timeFilter = t;
+  ['h24','h48','h72'].forEach(x => document.getElementById(`btn-${x}`).classList.toggle('active', x===t));
+  render();
+}
+
+/* ── Search ── */
+function handleSearch(v) {
+  search = v;
+  document.getElementById('sclear').style.display = v ? '' : 'none';
+  render();
+}
+function clearSearch() {
+  search = '';
+  document.getElementById('sinput').value = '';
+  document.getElementById('sclear').style.display = 'none';
+  render();
+}
+
+/* ── Sync ──
+   【計劃】遷移後替換此函數：
+   async function handleSync() {
+     await fetch('https://xxx.supabase.co/rest/v1/inventory', { headers:{...} })
+     await fetch('/api/sync-shopify', { method:'POST' })
+     await fetch('/api/sync-hktv',    { method:'POST' })
+   }
+*/
+function handleSync() {
+  const btn = document.getElementById('sync-btn');
+  btn.innerHTML = '<span class="spin">↻</span> 同步中…';
+  setTimeout(() => {
+    btn.innerHTML = '↻ 立即同步';
+    lastSync = hktNow();
+    document.getElementById('last-sync').textContent = lastSync;
+  }, 800);
+}
+
+/* ── Modal ── */
+function openModal() {
+  const lows = lowItems();
+  document.getElementById('modal-count').textContent = lows.length;
+  document.getElementById('modal-body').innerHTML = lows.map(item => {
+    const plats = PKEYS.filter(k=>item.platforms[k]).map(k=>PLABELS[k]).join(' · ') || '全部停用';
+    const zero  = item.central === 0;
+    return `<div class="mitem">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="sku">${item.sku}</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#1e293b">${item.name}</div>
+          <div style="font-size:10px;color:#94a3b8;margin-top:2px">啟用平台：${plats}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span style="font-size:11px;color:#94a3b8">中央倉</span>
+        <span style="font-size:22px;font-weight:800;color:${zero?'#ef4444':'#f97316'};min-width:28px;text-align:right;line-height:1">${item.central}</span>
+        <span style="font-size:10px;background:${zero?'#fef2f2':'#fff7ed'};color:${zero?'#dc2626':'#ea580c'};border:1px solid ${zero?'#fecaca':'#fed7aa'};border-radius:5px;padding:2px 7px;font-weight:700">${zero?'缺貨':'極低'}</span>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+/* ── Init ── */
+render();
+</script>
+</body>
+</html>
