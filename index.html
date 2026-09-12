@@ -42,8 +42,8 @@ function switchTab(tabName) {
   frames.forEach(f => {
     const isActive = f.dataset.tab === tabName;
     f.classList.toggle('active', isActive);
-    /* 第一次切換才設 src，之後不重載 */
-    if (isActive && !f.src) {
+    /* ✅ 修正1：用 getAttribute 判斷，避免 about:blank 誤判 */
+    if (isActive && !f.getAttribute('src')) {
       f.src = f.dataset.src;
     }
   });
@@ -54,11 +54,21 @@ btns.forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 /* ★ 接收查貨頁「調整此格位」的 postMessage */
 window.addEventListener('message', e => {
   if (e.data?.type === 'navigate' && e.data.sku) {
-    /* 切換到調整 tab（同時觸發懶載入） */
-    switchTab('adjust');
-    /* 轉發訊息給 adjust iframe */
     const adjFrame = document.getElementById('frameAdjust');
-    adjFrame.contentWindow.postMessage(e.data, '*');
+
+    /* ✅ 修正2：判斷 iframe 是否已載入，決定何時發 postMessage */
+    if (adjFrame.getAttribute('src')) {
+      /* 已載入過，切換 tab 後直接發 */
+      switchTab('adjust');
+      adjFrame.contentWindow.postMessage(e.data, '*');
+    } else {
+      /* 第一次，等載入完再發 */
+      switchTab('adjust');
+      adjFrame.addEventListener('load', function onLoad() {
+        adjFrame.removeEventListener('load', onLoad);
+        adjFrame.contentWindow.postMessage(e.data, '*');
+      });
+    }
   }
 });
 </script>
