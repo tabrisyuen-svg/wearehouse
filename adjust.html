@@ -643,21 +643,6 @@ $('#btnRefresh').onclick=load;
 let tmr;
 $('#aq').oninput=()=>{clearTimeout(tmr);tmr=setTimeout(aSearch,200);};
 load();
-
-/* ★ 接收來自查貨頁「調整此格位」的 postMessage */
-window.addEventListener('message', e => {
-  if (e.data?.type === 'navigate' && e.data.sku) {
-    $('#aq').value = e.data.sku;
-    A_sku = e.data.sku;
-    // 等資料載入完再搜尋
-    if (DATA.length) {
-      aSearch();
-    } else {
-      const wait = setInterval(() => {
-        if (DATA.length) { clearInterval(wait); aSearch(); }
-      }, 200);
-    }
-  }
-});
-
-
+</script>
+</body>
+</html>
