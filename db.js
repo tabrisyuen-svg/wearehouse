@@ -1,11 +1,11 @@
 // ============================================================
-// db.js — 數據抽象層 v1.1
-// 切換數據來源只需改 DB_CONFIG.source
-// 'google' = Google Apps Script | 'supabase' = Supabase | 'shopify' = Shopify
+// db.js — 數據抽象層 v1.2
+// source: 'google' = 庫存/產品/客戶用 Google Sheet
+// shopify.ordersSource: 'shopify' = 訂單用 Shopify
 // ============================================================
 
 const DB_CONFIG = {
-  source: 'google', // ⬅️ 轉移時只改這一個字
+  source: 'google',
 
   google: {
     scriptUrl: 'https://script.google.com/macros/s/AKfycbwNAlZrmbPHKywdIUB9Esur7j1cEqyZ3xhqCP0hNrYrwE1JM6ntG2qp409Ic-2m6MBTpw/exec'
@@ -17,7 +17,8 @@ const DB_CONFIG = {
   },
 
   shopify: {
-    defaultStore: 'eurekakids' // 'eurekakids' 或 'ricoutlet'
+    defaultStore: 'eurekakids',
+    ordersSource: 'shopify' // ⬅️ 只有訂單用 Shopify，其他繼續用 Google
   }
 }
 
@@ -83,7 +84,6 @@ const DB = {
   },
 
   async batchUpdateInventory(items) {
-    // items: [{ sku, qty }, ...]
     if (DB_CONFIG.source === 'google') {
       return this._googleFetch('batchUpdateInventory', { items: JSON.stringify(items) })
     } else {
@@ -108,7 +108,6 @@ const DB = {
   // ── 大量入庫 / 未上架 ─────────────────────────────────────
 
   async bulkImport(items) {
-    // items: [{ sku, qty, status: 'unlisted'|'listed', location }]
     if (DB_CONFIG.source === 'google') {
       return this._googleFetch('bulkImport', { items: JSON.stringify(items) })
     } else {
@@ -174,15 +173,15 @@ const DB = {
   // ── 網單 ─────────────────────────────────────────────────
 
   async getOrders(storeId, status = '') {
-    if (DB_CONFIG.source === 'google') {
-      return this._googleFetch('getOrders', { storeId, status })
-
-    } else if (DB_CONFIG.source === 'shopify') {
+    if (DB_CONFIG.shopify.ordersSource === 'shopify') {
       const store = storeId || DB_CONFIG.shopify.defaultStore
       let endpoint = 'orders.json?limit=50&status=any'
       if (status) endpoint += `&fulfillment_status=${status}`
       const data = await this._shopifyFetch(store, endpoint)
       return data.orders || []
+
+    } else if (DB_CONFIG.source === 'google') {
+      return this._googleFetch('getOrders', { storeId, status })
 
     } else {
       const f = status
@@ -193,19 +192,14 @@ const DB = {
   },
 
   async confirmPickup(orderId, staffId, storeId) {
-    if (DB_CONFIG.source === 'google') {
-      return this._googleFetch('confirmPickup', { orderId, staffId })
-
-    } else if (DB_CONFIG.source === 'shopify') {
+    if (DB_CONFIG.shopify.ordersSource === 'shopify') {
       const store = storeId || DB_CONFIG.shopify.defaultStore
-      // Step 1: 取得 fulfillment_order id
       const foData = await this._shopifyFetch(
         store,
         `orders/${orderId}/fulfillment_orders.json`
       )
       const fulfillmentOrderId = foData.fulfillment_orders?.[0]?.id
       if (!fulfillmentOrderId) throw new Error('No fulfillment order found')
-      // Step 2: 建立 fulfillment（pickup）
       return this._shopifyFetch(store, 'fulfillments.json', {
         method: 'POST',
         body: {
@@ -217,6 +211,9 @@ const DB = {
           }
         }
       })
+
+    } else if (DB_CONFIG.source === 'google') {
+      return this._googleFetch('confirmPickup', { orderId, staffId })
 
     } else {
       return this._supabaseFetch('orders', {
@@ -233,19 +230,14 @@ const DB = {
   },
 
   async fulfillShipping(orderId, trackingCompany, trackingNumber, storeId) {
-    if (DB_CONFIG.source === 'google') {
-      return this._googleFetch('fulfillShipping', { orderId, trackingCompany, trackingNumber })
-
-    } else if (DB_CONFIG.source === 'shopify') {
+    if (DB_CONFIG.shopify.ordersSource === 'shopify') {
       const store = storeId || DB_CONFIG.shopify.defaultStore
-      // Step 1: 取得 fulfillment_order id
       const foData = await this._shopifyFetch(
         store,
         `orders/${orderId}/fulfillment_orders.json`
       )
       const fulfillmentOrderId = foData.fulfillment_orders?.[0]?.id
       if (!fulfillmentOrderId) throw new Error('No fulfillment order found')
-      // Step 2: 建立 fulfillment（shipping）
       return this._shopifyFetch(store, 'fulfillments.json', {
         method: 'POST',
         body: {
@@ -261,6 +253,9 @@ const DB = {
           }
         }
       })
+
+    } else if (DB_CONFIG.source === 'google') {
+      return this._googleFetch('fulfillShipping', { orderId, trackingCompany, trackingNumber })
 
     } else {
       return this._supabaseFetch('orders', {
