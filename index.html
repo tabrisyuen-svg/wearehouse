@@ -1,202 +1,261 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-HK">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>倉庫管理系統</title>
-<!--
-=================================================================
-  倉庫管理系統 — 系統架構說明
-=================================================================
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>倉庫管理系統</title>
+  <script src="./db.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  【前端架構】
-  - 部署平台：Vercel（GitHub 連動，push 即更新）
-  - 入口：index.html（Hub，iframe 切換各功能頁）
-  - 各功能頁：search.html、adjust.html、shop-sync/index.html
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #131929;
+      color: #e0e0e0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
-  【後端架構】
-  - 現階段：Google Apps Script + Google Sheets
-  - 計劃遷移：Supabase（遷移後只需更換前端 fetch 目標，index.html 結構不變）
+    /* ── Header ── */
+    #header {
+      background: #1a2744;
+      border-bottom: 1px solid #1e3158;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      height: 44px;
+      flex-shrink: 0;
+    }
 
-  【Google Drive 結構（計劃）】
-  - 主 Sheet：倉庫庫存（存所有 SKU 數據）
-  - 歷史分頁：調整歷史（第三階段，記錄誰在何時改了什麼）
-  - 報表資料夾：倉庫報表（每次匯出 PDF 自動存入副本）
-  - Template：Docs / Sheets 報表模板（供 PDF 匯出使用）
+    #logo {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-  【Sheet 欄位常量】
-  - COL_SKU       = SKU 編號
-  - COL_BRAND     = 品牌
-  - COL_NAME      = 產品名稱
-  - COL_LOCATION  = 格位（行 + 架 + 層）
-  - COL_BOX_QTY   = 箱數
-  - COL_BOX_EACH  = 一箱總件數
-  - COL_PKT_QTY   = 盒數
-  - COL_PKT_EACH  = 一盒總件數
-  - COL_LOOSE     = 散件
-  - COL_TOTAL     = 總貨數（J 欄，自動計算）
-  - COL_PRICE     = 價錢
-  - COL_THRESHOLD = 低庫存門檻
+    /* ── Tab Bar ── */
+    #tabbar {
+      background: #1a2744;
+      border-bottom: 2px solid #1e3158;
+      display: flex;
+      align-items: stretch;
+      padding: 0 8px;
+      flex-shrink: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    #tabbar::-webkit-scrollbar { display: none; }
 
-  【Apps Script WEB_APP_URL】
-  - 填入已部署的 Apps Script 網址
-  - 所有頁面共用同一個 endpoint
-  - doGet  = 讀取資料
-  - doPost = 寫入 / 調整庫存
+    .tab-group {
+      display: flex;
+      align-items: stretch;
+      padding: 0 4px;
+      border-right: 1px solid #1e3158;
+      gap: 1px;
+    }
+    .tab-group:last-child { border-right: none; }
 
-  【通訊方式】
-  - index.html → iframe：postMessage
-  - 格式：{ type: 'navigate', sku: '...', ... }
+    .tab-group-label {
+      font-size: 9px;
+      color: #3a5070;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      align-self: center;
+      padding: 0 6px;
+      white-space: nowrap;
+    }
 
-  【shop-sync 自動更新】
-  - inventory-dashboard repo push → GitHub Actions 自動 build
-  - build 完自動 copy dist/ 到 wearehouse/shop-sync/
-  - Vercel 自動部署，無需手動操作
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0 11px;
+      font-size: 12px;
+      color: #7890b0;
+      cursor: pointer;
+      border: none;
+      background: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      white-space: nowrap;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      height: 40px;
+    }
+    .tab-btn:hover { color: #c8d3e0; background: rgba(255,255,255,0.04); }
+    .tab-btn.active {
+      color: #fff;
+      border-bottom-color: #4a8fe8;
+      background: rgba(74, 143, 232, 0.1);
+    }
 
-=================================================================
-  功能規劃
-=================================================================
+    .tab-badge {
+      background: #e74c3c;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 10px;
+      min-width: 16px;
+      text-align: center;
+      line-height: 14px;
+    }
 
-  ✅ 第一階段（已完成）
-  - 🔍 查貨               search.html           掃 / 輸入 SKU 查詢格位及庫存
-  - 📝 庫存調整           adjust.html           加庫 / 扣庫，支援箱、盒、散件
-  - 🛒 網店存庫即時更新   shop-sync/index.html  對應 Shopify 及 HKTVmall 庫存同步（Demo）
+    /* ── Frame Container ── */
+    #frame-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #131929;
+    }
 
-  🔲 第二階段（計劃中）
-  - 📊 庫存總覽    overview.html   所有 SKU 表格，支援匯出 CSV / PDF
-  - ⚠️ 低庫存警示  lowstock.html   低於門檻標紅，獨立 tab 顯示
-  - 📋 盤點模式    stocktake.html  輸入 SKU 對比 Sheet 數量，確認後寫入
-  - 🗂️ 格位查詢    location.html   輸入行架層，列出該格所有 SKU 及數量
+    .iframe-box {
+      position: absolute;
+      inset: 0;
+      display: none;
+    }
+    .iframe-box.active { display: block; }
 
-  🔲 第三階段（計劃中）
-  - 📦 批量調整    batch.html      一次調整多個 SKU
-  - 🔐 登入驗證    login.html      密碼保護，記錄用戶身份
-  - 📝 調整歷史    history.html    記錄誰在何時改了什麼，存入 Sheet 獨立分頁
+    .iframe-box iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #131929;
+    }
 
-  🔲 網店 API 同步（計劃中）
-  - 倉庫調整庫存 → 同步推送 Shopify REST API + HKTVmall Seller API
-  - SKU 需與 Shopify / HKTVmall 完全一致
-  - 遷移 Supabase 後用 Edge Function / Database Trigger 自動觸發
-
-  【PDF 匯出方式】
-  - 使用 Google Docs / Sheets 作 Template
-  - Apps Script 複製 Template → 填入數據 → 匯出 PDF → 副本存入「倉庫報表」資料夾
-
-  【後端遷移計劃】
-  - 現階段：Google Sheets + Apps Script
-  - 計劃：遷移 Supabase，前端只需改 fetch 目標
-
-  【併發保護（現階段）】
-  - Apps Script LockService 寫入鎖
-  - 前端樂觀鎖（寫入前比對版本號，衝突時提示重試）
-
-=================================================================
-  更新記錄
-=================================================================
-  v1.0  第一階段完成：查貨、庫存調整
-  v1.1  修正 iOS Safari iframe 滾動問題（.iframe-box wrapper）
-  v1.2  加入網店存庫即時更新（shop-sync，GitHub Actions 自動 build）
-  v2.0  （計劃）第二階段功能上線
-  v3.0  （計劃）第三階段功能上線 + Supabase 遷移
-=================================================================
--->
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;font-family:-apple-system,"Microsoft JhengHei","Noto Sans TC",sans-serif;background:#1f2937}
-nav{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#1f2937;border-bottom:1px solid #374151;flex-wrap:wrap}
-nav .logo{color:#fff;font-size:15px;font-weight:700;margin-right:8px;white-space:nowrap}
-nav button{cursor:pointer;border:0;border-radius:6px;padding:8px 18px;font-size:14px;background:#374151;color:#9ca3af;min-height:36px;transition:background .15s,color .15s}
-nav button.active{background:#2563eb;color:#fff}
-nav button:hover:not(.active){background:#4b5563;color:#fff}
-nav button.coming{cursor:default;opacity:.5;position:relative}
-nav button.coming::after{content:"即將推出";position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:#374151;color:#9ca3af;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;pointer-events:none}
-.frame-wrap{position:relative;width:100%;height:calc(100vh - 53px);overflow:hidden}
-.iframe-box{position:absolute;inset:0;overflow-y:scroll;-webkit-overflow-scrolling:touch;display:none}
-.iframe-box.active{display:block}
-iframe{width:100%;height:100%;border:0;background:#f4f5f7}
-.version{margin-left:auto;color:#4b5563;font-size:11px;white-space:nowrap}
-</style>
+    /* ── Version ── */
+    #version {
+      position: fixed;
+      bottom: 6px;
+      right: 10px;
+      font-size: 9px;
+      color: #2a3248;
+      pointer-events: none;
+      user-select: none;
+    }
+  </style>
 </head>
 <body>
 
-<nav>
-  <span class="logo">📦 倉庫管理</span>
+<!-- Header -->
+<div id="header">
+  <div id="logo">📦 倉庫管理</div>
+</div>
 
-  <!-- ✅ 第一階段 -->
-  <button class="active" data-tab="search">🔍 查貨</button>
-  <button data-tab="adjust">📝 庫存調整</button>
-  <button data-tab="shop-sync">🛒 網店存庫即時更新</button>
+<!-- Tab Bar -->
+<div id="tabbar">
 
-  <!-- 🔲 第二階段（coming soon） -->
-  <button class="coming" disabled>📊 庫存總覽</button>
-  <button class="coming" disabled>⚠️ 低庫存</button>
-  <button class="coming" disabled>📋 盤點</button>
-  <button class="coming" disabled>🗂️ 格位查詢</button>
+  <!-- 倉庫管理 -->
+  <div class="tab-group">
+    <span class="tab-group-label">倉庫</span>
+    <button class="tab-btn" data-tab="search">🔍 查貨</button>
+    <button class="tab-btn" data-tab="adjust">📝 存庫調整</button>
+    <button class="tab-btn" data-tab="bulk-import">
+      📥 大量入庫
+      <span class="tab-badge" id="badge-unlisted" style="display:none">0</span>
+    </button>
+    <button class="tab-btn" data-tab="products">🖼 產品資料</button>
+    <button class="tab-btn" data-tab="overview">📊 庫存總覽</button>
+    <button class="tab-btn" data-tab="stocktake">📋 盤點</button>
+    <button class="tab-btn" data-tab="location">🗂️ 格位查詢</button>
+  </div>
 
-  <span class="version">v1.2</span>
-</nav>
+  <!-- 網店管理 -->
+  <div class="tab-group">
+    <span class="tab-group-label">網店</span>
+    <button class="tab-btn" data-tab="shop-sync">
+      🛒 存庫即時更新
+      <span class="tab-badge" id="badge-lowstock" style="display:none">0</span>
+    </button>
+    <button class="tab-btn" data-tab="pickup">🏪 到店取</button>
+    <button class="tab-btn" data-tab="shipping">📮 寄單</button>
+  </div>
 
-<div class="frame-wrap">
-  <div class="iframe-box active" data-tab="search">
+</div>
+
+<!-- Frame Container -->
+<div id="frame-container">
+
+  <!-- 倉庫管理 -->
+  <div class="iframe-box" data-tab="search">
     <iframe id="frameSearch" data-src="./search.html"></iframe>
   </div>
   <div class="iframe-box" data-tab="adjust">
     <iframe id="frameAdjust" data-src="./adjust.html"></iframe>
   </div>
+  <div class="iframe-box" data-tab="bulk-import">
+    <iframe id="frameBulkImport" data-src="./bulk-import.html"></iframe>
+  </div>
+  <div class="iframe-box" data-tab="products">
+    <iframe id="frameProducts" data-src="./products.html"></iframe>
+  </div>
+  <div class="iframe-box" data-tab="overview">
+    <iframe id="frameOverview" data-src="./overview.html"></iframe>
+  </div>
+  <div class="iframe-box" data-tab="stocktake">
+    <iframe id="frameStocktake" data-src="./stocktake.html"></iframe>
+  </div>
+  <div class="iframe-box" data-tab="location">
+    <iframe id="frameLocation" data-src="./location.html"></iframe>
+  </div>
+
+  <!-- 網店管理 -->
   <div class="iframe-box" data-tab="shop-sync">
     <iframe id="frameShopSync" data-src="./shop-sync.html"></iframe>
   </div>
+  <div class="iframe-box" data-tab="pickup">
+    <iframe id="framePickup" data-src="./pickup.html"></iframe>
+  </div>
+  <div class="iframe-box" data-tab="shipping">
+    <iframe id="frameShipping" data-src="./shipping.html"></iframe>
+  </div>
+
 </div>
 
+<div id="version">v2.0</div>
+
 <script>
-/* =============================================================
-   Tab 切換邏輯
-   - boxes：.iframe-box wrapper（解決 iOS Safari 滾動問題）
-   - iframe 懶載入：第一次切換才載入，避免一次載入全部
-   ============================================================= */
-const btns  = document.querySelectorAll('nav button:not(.coming)');
-const boxes = document.querySelectorAll('.iframe-box');
+  // ── Tab 切換 ───────────────────────────────────────────────
+  const tabs = document.querySelectorAll('.tab-btn')
+  const boxes = document.querySelectorAll('.iframe-box')
 
-/* 預載入第一個 tab */
-document.getElementById('frameSearch').src = './search.html';
-
-function switchTab(tabName) {
-  btns.forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
-  boxes.forEach(box => {
-    const isActive = box.dataset.tab === tabName;
-    box.classList.toggle('active', isActive);
-    if (isActive) {
-      const iframe = box.querySelector('iframe');
-      if (!iframe.getAttribute('src')) {
-        iframe.src = iframe.dataset.src;
+  function activateTab(key) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === key))
+    boxes.forEach(b => {
+      const active = b.dataset.tab === key
+      b.classList.toggle('active', active)
+      if (active) {
+        const iframe = b.querySelector('iframe')
+        if (iframe && !iframe.src && iframe.dataset.src) {
+          iframe.src = iframe.dataset.src  // lazy load，點到才載入
+        }
       }
-    }
-  });
-}
-
-btns.forEach(b => b.onclick = () => switchTab(b.dataset.tab));
-
-/* =============================================================
-   postMessage 通訊
-   - 來源：查貨頁「調整此格位」按鈕
-   - 動作：切換至庫存調整 tab，並傳入 SKU 資料
-   ============================================================= */
-window.addEventListener('message', e => {
-  if (e.data?.type === 'navigate' && e.data.sku) {
-    const adjFrame = document.getElementById('frameAdjust');
-
-    if (adjFrame.getAttribute('src')) {
-      switchTab('adjust');
-      adjFrame.contentWindow.postMessage(e.data, '*');
-    } else {
-      switchTab('adjust');
-      adjFrame.addEventListener('load', function onLoad() {
-        adjFrame.removeEventListener('load', onLoad);
-        adjFrame.contentWindow.postMessage(e.data, '*');
-      });
-    }
+    })
+    localStorage.setItem('wms_activeTab', key)
   }
-});
+
+  tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)))
+
+  // 還原上次 tab，預設 search
+  activateTab(localStorage.getItem('wms_activeTab') || 'search')
+
+  // ── Badge 更新（子頁面 postMessage）─────────────────────────
+  // 子頁面發送格式：
+  // window.parent.postMessage({ type: 'badge', key: 'lowstock', count: 3 }, '*')
+  // key 可以是：'lowstock' | 'unlisted'
+  window.addEventListener('message', e => {
+    if (e.data?.type === 'badge') {
+      const badge = document.getElementById(`badge-${e.data.key}`)
+      if (!badge) return
+      badge.textContent = e.data.count
+      badge.style.display = e.data.count > 0 ? 'inline-block' : 'none'
+    }
+  })
 </script>
+
 </body>
 </html>
