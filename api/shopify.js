@@ -88,7 +88,8 @@ module.exports = async (req, res) => {
     });
 
     const data = await shopifyRes.json();
-    return res.status(shopifyRes.status).json(data);
+    console.log(`[shopify] ${method} ${endpoint} →`, shopifyRes.status, JSON.stringify(data).slice(0, 300))
+      return res.status(shopifyRes.status).json(data);
 
   } catch (err) {
     console.error('[shopify error]', err.message);
