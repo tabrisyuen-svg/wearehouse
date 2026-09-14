@@ -584,6 +584,46 @@
 <script src="db.js"></script>
 <script>
 
+// ── 注入 DB.confirmPickup（若 db.js 未定義）────────────────────
+if (typeof DB !== 'undefined' && typeof DB.confirmPickup !== 'function') {
+  DB.confirmPickup = async function(orderId, staffId, storeId) {
+    const store = storeId || 'eurekakids'
+
+    // 1. 取得 fulfillment orders
+    const foData = await DB._shopifyFetch(
+      store,
+      `orders/${orderId}/fulfillment_orders.json`
+    )
+    const fulfillmentOrders = foData.fulfillment_orders || []
+
+    console.log('fulfillment_orders:', fulfillmentOrders.map(f => ({ id: f.id, status: f.status })))
+
+    // 2. 只取 open / in_progress
+    const openFO = fulfillmentOrders.find(fo =>
+      fo.status === 'open' || fo.status === 'in_progress'
+    )
+
+    if (!openFO) {
+      throw new Error(
+        `No open fulfillment order (status: ${fulfillmentOrders.map(f => f.status).join(',')})`
+      )
+    }
+
+    // 3. 建立 fulfillment
+    return DB._shopifyFetch(store, 'fulfillments.json', {
+      method: 'POST',
+      body: {
+        fulfillment: {
+          line_items_by_fulfillment_order: [
+            { fulfillment_order_id: openFO.id }
+          ],
+          notify_customer: false
+        }
+      }
+    })
+  }
+}
+
 // ── Config ────────────────────────────────────────────────────
 const STAFF_LIST = ['小明', '小花', '阿偉', '阿珊']
 
@@ -635,7 +675,9 @@ window.addEventListener('DOMContentLoaded', () => {
       renderTable()
     })
   )
-  document.getElementById('storeSelect').addEventListener('change', e => { curStore = e.target.value; renderTable() })
+  document.getElementById('storeSelect').addEventListener('change', e => {
+    curStore = e.target.value; renderTable()
+  })
   document.getElementById('searchInput').addEventListener('input', renderTable)
   document.getElementById('btnRefresh').addEventListener('click', loadOrders)
 })
@@ -707,7 +749,7 @@ function renderTable() {
         </td>
         <td><span class="store-tag">${o.storeName}</span></td>
         <td style="color:#6b7a99">${fmtDate(o.createdAt)}</td>
-        <td class="wait ${o.status==='fulfilled'?'':w.cls}">${o.status==='fulfilled'?'—':w.label}</td>
+        <td class="wait ${o.status === 'fulfilled' ? '' : w.cls}">${o.status === 'fulfilled' ? '—' : w.label}</td>
         <td>${badge}</td>
         <td onclick="event.stopPropagation()">${action}</td>
       </tr>`
@@ -758,7 +800,8 @@ function openModal(orderId) {
         ${!isDone ? `<span class="wait ${w.cls}" style="margin-left:8px">（等待 ${w.label}）</span>` : ''}
       </span>
     </div>
-    ${o.note ? `<div class="info-row">
+    ${o.note ? `
+    <div class="info-row">
       <span class="info-label">備註</span>
       <span class="info-value"><div class="note-box">${o.note}</div></span>
     </div>` : ''}
@@ -780,15 +823,16 @@ function openModal(orderId) {
       ? `<div class="success-banner">✓ 已由 <strong>${o.fulfilledBy}</strong> 確認取貨&nbsp;&nbsp;·&nbsp;&nbsp;${fmtDate(o.fulfilledAt)}</div>`
       : `<label class="form-label">確認店員</label>
          <select class="staff-select" id="staffSelect">
-           <option value="">— 請選擇店員 —</option>AccessToken
+           <option value="">— 請選擇店員 —</option>
            ${STAFF_LIST.map(s => `<option value="${s}">${s}</option>`).join('')}
          </select>`
     }
   `
 
   const confirmBtn = document.getElementById('btnConfirmPickup')
-  if (isDone) { confirmBtn.style.display = 'none' }
-  else {
+  if (isDone) {
+    confirmBtn.style.display = 'none'
+  } else {
     confirmBtn.style.display = 'inline-block'
     confirmBtn.textContent = '確認取貨'
     confirmBtn.disabled = false
@@ -810,10 +854,10 @@ async function doConfirm() {
   btn.textContent = '處理中...'; btn.disabled = true
   try {
     const storeKey = selectedOrder.store === 'hape' ? 'eurekakids' : selectedOrder.store
-    console.log('confirmPickup:', selectedOrder.shopifyId, staff, storeKey)
+    console.log('confirmPickup payload:', selectedOrder.shopifyId, staff, storeKey)
 
     const result = await DB.confirmPickup(selectedOrder.shopifyId, staff, storeKey)
-    console.log('result:', JSON.stringify(result))
+    console.log('confirmPickup result:', JSON.stringify(result))
 
     if (result?.errors || result?.error) {
       throw new Error(JSON.stringify(result.errors || result.error))
