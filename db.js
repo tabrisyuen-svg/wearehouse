@@ -1,7 +1,7 @@
 // ============================================================
-// db.js — 數據抽象層 v1.0
+// db.js — 數據抽象層 v1.1
 // 切換數據來源只需改 DB_CONFIG.source
-// 'google' = Google Apps Script | 'supabase' = Supabase
+// 'google' = Google Apps Script | 'supabase' = Supabase | 'shopify' = Shopify
 // ============================================================
 
 const DB_CONFIG = {
@@ -12,8 +12,12 @@ const DB_CONFIG = {
   },
 
   supabase: {
-    url: '',      // 填入 Supabase Project URL
-    anonKey: ''   // 填入 Supabase anon key
+    url: '',
+    anonKey: ''
+  },
+
+  shopify: {
+    defaultStore: 'eurekakids' // 'eurekakids' 或 'ricoutlet'
   }
 }
 
@@ -42,6 +46,16 @@ const DB = {
       method,
       headers,
       body: body ? JSON.stringify(body) : null
+    })
+    return res.json()
+  },
+
+  async _shopifyFetch(store, endpoint, options = {}) {
+    const { method = 'GET', body = null } = options
+    const res = await fetch('/api/shopify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ store, endpoint, method, body })
     })
     return res.json()
   },
@@ -162,6 +176,14 @@ const DB = {
   async getOrders(storeId, status = '') {
     if (DB_CONFIG.source === 'google') {
       return this._googleFetch('getOrders', { storeId, status })
+
+    } else if (DB_CONFIG.source === 'shopify') {
+      const store = storeId || DB_CONFIG.shopify.defaultStore
+      let endpoint = 'orders.json?limit=50&status=any'
+      if (status) endpoint += `&fulfillment_status=${status}`
+      const data = await this._shopifyFetch(store, endpoint)
+      return data.orders || []
+
     } else {
       const f = status
         ? `?store_id=eq.${storeId}&status=eq.${status}&order=created_at.desc`
@@ -170,9 +192,32 @@ const DB = {
     }
   },
 
-  async confirmPickup(orderId, staffId) {
+  async confirmPickup(orderId, staffId, storeId) {
     if (DB_CONFIG.source === 'google') {
       return this._googleFetch('confirmPickup', { orderId, staffId })
+
+    } else if (DB_CONFIG.source === 'shopify') {
+      const store = storeId || DB_CONFIG.shopify.defaultStore
+      // Step 1: 取得 fulfillment_order id
+      const foData = await this._shopifyFetch(
+        store,
+        `orders/${orderId}/fulfillment_orders.json`
+      )
+      const fulfillmentOrderId = foData.fulfillment_orders?.[0]?.id
+      if (!fulfillmentOrderId) throw new Error('No fulfillment order found')
+      // Step 2: 建立 fulfillment（pickup）
+      return this._shopifyFetch(store, 'fulfillments.json', {
+        method: 'POST',
+        body: {
+          fulfillment: {
+            line_items_by_fulfillment_order: [
+              { fulfillment_order_id: fulfillmentOrderId }
+            ],
+            notify_customer: false
+          }
+        }
+      })
+
     } else {
       return this._supabaseFetch('orders', {
         method: 'PATCH',
@@ -187,9 +232,36 @@ const DB = {
     }
   },
 
-  async fulfillShipping(orderId, trackingCompany, trackingNumber) {
+  async fulfillShipping(orderId, trackingCompany, trackingNumber, storeId) {
     if (DB_CONFIG.source === 'google') {
       return this._googleFetch('fulfillShipping', { orderId, trackingCompany, trackingNumber })
+
+    } else if (DB_CONFIG.source === 'shopify') {
+      const store = storeId || DB_CONFIG.shopify.defaultStore
+      // Step 1: 取得 fulfillment_order id
+      const foData = await this._shopifyFetch(
+        store,
+        `orders/${orderId}/fulfillment_orders.json`
+      )
+      const fulfillmentOrderId = foData.fulfillment_orders?.[0]?.id
+      if (!fulfillmentOrderId) throw new Error('No fulfillment order found')
+      // Step 2: 建立 fulfillment（shipping）
+      return this._shopifyFetch(store, 'fulfillments.json', {
+        method: 'POST',
+        body: {
+          fulfillment: {
+            line_items_by_fulfillment_order: [
+              { fulfillment_order_id: fulfillmentOrderId }
+            ],
+            tracking_info: {
+              company: trackingCompany,
+              number: trackingNumber
+            },
+            notify_customer: true
+          }
+        }
+      })
+
     } else {
       return this._supabaseFetch('orders', {
         method: 'PATCH',
