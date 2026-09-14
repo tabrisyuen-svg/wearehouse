@@ -18,7 +18,7 @@ const DB_CONFIG = {
 
   shopify: {
     defaultStore: 'eurekakids',
-    ordersSource: 'shopify' // ⬅️ 只有訂單用 Shopify，其他繼續用 Google
+    ordersSource: 'shopify'
   }
 }
 
@@ -191,7 +191,8 @@ const DB = {
     }
   },
 
-async confirmPickup(orderId, staffId, storeId) {
+  // ✅ 已修正：過濾 open / in_progress 狀態
+  async confirmPickup(orderId, staffId, storeId) {
     if (DB_CONFIG.shopify.ordersSource === 'shopify') {
       const store = storeId || DB_CONFIG.shopify.defaultStore
       const foData = await this._shopifyFetch(
@@ -201,7 +202,6 @@ async confirmPickup(orderId, staffId, storeId) {
       const fulfillmentOrders = foData.fulfillment_orders || []
       console.log('FO list:', fulfillmentOrders.map(f => ({ id: f.id, status: f.status })))
 
-      // ✅ 只取 open / in_progress
       const openFO = fulfillmentOrders.find(fo =>
         fo.status === 'open' || fo.status === 'in_progress'
       )
@@ -238,6 +238,7 @@ async confirmPickup(orderId, staffId, storeId) {
     }
   },
 
+  // ✅ 已修正：過濾 open / in_progress 狀態
   async fulfillShipping(orderId, trackingCompany, trackingNumber, storeId) {
     if (DB_CONFIG.shopify.ordersSource === 'shopify') {
       const store = storeId || DB_CONFIG.shopify.defaultStore
@@ -246,8 +247,8 @@ async confirmPickup(orderId, staffId, storeId) {
         `orders/${orderId}/fulfillment_orders.json`
       )
       const fulfillmentOrders = foData.fulfillment_orders || []
+      console.log('FO list:', fulfillmentOrders.map(f => ({ id: f.id, status: f.status })))
 
-      // ✅ 只取 open / in_progress
       const openFO = fulfillmentOrders.find(fo =>
         fo.status === 'open' || fo.status === 'in_progress'
       )
@@ -261,49 +262,6 @@ async confirmPickup(orderId, staffId, storeId) {
           fulfillment: {
             line_items_by_fulfillment_order: [
               { fulfillment_order_id: openFO.id }
-            ],
-            tracking_info: {
-              company: trackingCompany,
-              number: trackingNumber
-            },
-            notify_customer: true
-          }
-        }
-      })
-
-    } else if (DB_CONFIG.source === 'google') {
-      return this._googleFetch('fulfillShipping', { orderId, trackingCompany, trackingNumber })
-
-    } else {
-      return this._supabaseFetch('orders', {
-        method: 'PATCH',
-        filter: `?id=eq.${orderId}`,
-        body: {
-          status: 'shipped',
-          fulfillment_type: 'shipping',
-          tracking_company: trackingCompany,
-          tracking_number: trackingNumber,
-          shipped_at: new Date().toISOString()
-        }
-      })
-    }
-  },
-
-  async fulfillShipping(orderId, trackingCompany, trackingNumber, storeId) {
-    if (DB_CONFIG.shopify.ordersSource === 'shopify') {
-      const store = storeId || DB_CONFIG.shopify.defaultStore
-      const foData = await this._shopifyFetch(
-        store,
-        `orders/${orderId}/fulfillment_orders.json`
-      )
-      const fulfillmentOrderId = foData.fulfillment_orders?.[0]?.id
-      if (!fulfillmentOrderId) throw new Error('No fulfillment order found')
-      return this._shopifyFetch(store, 'fulfillments.json', {
-        method: 'POST',
-        body: {
-          fulfillment: {
-            line_items_by_fulfillment_order: [
-              { fulfillment_order_id: fulfillmentOrderId }
             ],
             tracking_info: {
               company: trackingCompany,
