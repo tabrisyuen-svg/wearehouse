@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>寄單</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f4f8;
+      color: #1a2744;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    #toolbar {
+      background: #fff;
+      border-bottom: 1px solid #dde3ed;
+      padding: 9px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-title { font-size: 14px; font-weight: 700; color: #1a2744; white-space: nowrap; margin-right: 4px; }
+
+    .status-tabs {
+      display: flex; gap: 3px; background: #f0f4f8;
+      border-radius: 6px; padding: 3px; border: 1px solid #dde3ed;
+    }
+
+    .status-tab {
+      padding: 5px 13px; border-radius: 4px; font-size: 12px;
+      cursor: pointer; border: none; color: #6b7a99; background: none;
+      transition: all 0.15s; display: flex; align-items: center;
+      gap: 5px; white-space: nowrap; font-weight: 500;
+    }
+
+    .status-tab.active {
+      background: #fff; color: #1a2744;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 600;
+    }
+
+    .tab-count {
+      background: #e74c3c; color: #fff; font-size: 9px; font-weight: 700;
+      padding: 1px 5px; border-radius: 10px; min-width: 16px;
+      text-align: center; line-height: 14px;
+    }
+
+    .store-select {
+      background: #fff; border: 1px solid #dde3ed; color: #1a2744;
+      padding: 6px 10px; border-radius: 6px; font-size: 12px;
+      cursor: pointer; outline: none;
+    }
+
+    .search-box {
+      display: flex; align-items: center; background: #fff;
+      border: 1px solid #dde3ed; border-radius: 6px;
+      padding: 0 10px; gap: 6px; flex: 1; max-width: 240px;
+    }
+
+    .search-box input {
+      background: none; border: none; color: #1a2744;
+      font-size: 12px; outline: none; padding: 6px 0; width: 100%;
+    }
+
+    .search-box input::placeholder { color: #aab4c8; }
+
+    .btn-refresh {
+      background: #1a2744; border: none; color: #fff;
+      padding: 6px 14px; border-radius: 6px; font-size: 12px;
+      cursor: pointer; display: flex; align-items: center;
+      gap: 5px; margin-left: auto; transition: all 0.15s;
+      white-space: nowrap; font-weight: 500;
+    }
+
+    .btn-refresh:hover { background: #243460; }
+    .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #summary {
+      background: #fff; border-bottom: 1px solid #dde3ed;
+      padding: 8px 20px; display: flex; gap: 28px;
+      flex-shrink: 0; align-items: center;
+    }
+
+    .sum-item { display: flex; align-items: center; gap: 8px; }
+
+    .sum-val {
+      font-size: 22px; font-weight: 700; color: #1a2744;
+      min-width: 28px; line-height: 1;
+    }
+
+    .sum-val.warn   { color: #e67e22; }
+    .sum-val.ok     { color: #27ae60; }
+    .sum-val.blue   { color: #3b5bdb; }
+
+    .sum-label { font-size: 11px; color: #6b7a99; line-height: 1.3; }
+    .sum-divider { width: 1px; height: 32px; background: #dde3ed; }
+
+    #table-area { flex: 1; overflow-y: auto; padding: 14px 16px; }
+    #table-area::-webkit-scrollbar { width: 5px; }
+    #table-area::-webkit-scrollbar-track { background: transparent; }
+    #table-area::-webkit-scrollbar-thumb { background: #c8d0e0; border-radius: 3px; }
+
+    table {
+      width: 100%; border-collapse: collapse; font-size: 12px;
+      background: #fff; border-radius: 8px; overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+
+    thead th {
+      background: #f5f7fb; color: #6b7a99; font-weight: 600;
+      padding: 10px 14px; text-align: left;
+      border-bottom: 1px solid #dde3ed; white-space: nowrap;
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px;
+    }
+
+    tbody tr { border-bottom: 1px solid #eef1f7; transition: background 0.1s; cursor: pointer; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #f5f8ff; }
+    tbody td { padding: 10px 14px; vertical-align: middle; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px; border-radius: 10px; font-size: 11px;
+      font-weight: 600; white-space: nowrap;
+    }
+
+    .badge-pending { background: #fff8e6; color: #e67e22; border: 1px solid #f5d48a; }
+    .badge-done    { background: #eafaf1; color: #27ae60; border: 1px solid #a9dfbf; }
+
+    .order-id { color: #2563eb; font-weight: 700; font-size: 12px; }
+
+    .store-tag {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 600;
+      background: #eef2ff; color: #3b5bdb;
+    }
+
+    .btn-ship {
+      background: #eef2ff; border: 1px solid #c5d0fb; color: #3b5bdb;
+      padding: 5px 13px; border-radius: 5px; font-size: 11px;
+      font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+
+    .btn-ship:hover { background: #dde5ff; }
+
+    .addr-text {
+      color: #6b7a99; font-size: 11px;
+      max-width: 160px; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(26,39,68,0.45); z-index: 100;
+      align-items: center; justify-content: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: #fff; border: 1px solid #dde3ed;
+      border-radius: 10px; width: 560px; max-width: 92vw;
+      max-height: 90vh; display: flex; flex-direction: column;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.18);
+    }
+
+    .modal-header {
+      padding: 15px 20px; border-bottom: 1px solid #dde3ed;
+      display: flex; align-items: center;
+      justify-content: space-between; flex-shrink: 0;
+    }
+
+    .modal-header h3 { font-size: 14px; font-weight: 700; color: #1a2744; }
+
+    .modal-close {
+      background: none; border: none; color: #aab4c8;
+      font-size: 18px; cursor: pointer; line-height: 1;
+    }
+
+    .modal-close:hover { color: #1a2744; }
+
+    .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+
+    .modal-footer {
+      padding: 13px 20px; border-top: 1px solid #dde3ed;
+      display: flex; justify-content: flex-end; gap: 8px;
+      flex-shrink: 0; background: #f9fbfd;
+      border-radius: 0 0 10px 10px;
+    }
+
+    .info-row {
+      display: flex; gap: 10px; margin-bottom: 10px;
+      font-size: 13px; align-items: baseline;
+    }
+
+    .info-label { color: #6b7a99; width: 72px; flex-shrink: 0; font-size: 12px; }
+    .info-value { color: #1a2744; flex: 1; }
+
+    .divider { border: none; border-top: 1px solid #eef1f7; margin: 14px 0; }
+
+    .items-list { border: 1px solid #dde3ed; border-radius: 7px; overflow: hidden; }
+
+    .item-row {
+      display: flex; align-items: center; padding: 9px 13px;
+      border-bottom: 1px solid #eef1f7; gap: 10px;
+      font-size: 12px; background: #fff;
+    }
+
+    .item-row:last-child { border-bottom: none; }
+
+    .item-icon {
+      width: 34px; height: 34px; background: #f0f4f8;
+      border-radius: 5px; display: flex; align-items: center;
+      justify-content: center; font-size: 16px; flex-shrink: 0;
+    }
+
+    .item-name { color: #1a2744; margin-bottom: 2px; font-weight: 500; }
+    .item-sku  { color: #6b7a99; font-size: 11px; }
+    .item-qty  { color: #1a2744; font-weight: 700; margin-left: auto; font-size: 13px; }
+
+    /* ── Tracking Form ── */
+    .tracking-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      margin-top: 4px;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+
+    .form-label {
+      font-size: 12px; color: #6b7a99;
+      font-weight: 500; display: block;
+    }
+
+    .form-input, .form-select {
+      width: 100%; background: #fff;
+      border: 1px solid #dde3ed; color: #1a2744;
+      padding: 9px 12px; border-radius: 7px;
+      font-size: 13px; outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .form-input:focus, .form-select:focus {
+      border-color: #3b5bdb;
+      box-shadow: 0 0 0 3px rgba(59,91,219,0.1);
+    }
+
+    .form-input::placeholder { color: #aab4c8; }
+
+    .section-title {
+      font-size: 11px; color: #6b7a99; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 10px;
+    }
+
+    .address-box {
+      background: #f5f7fb; border: 1px solid #dde3ed;
+      border-radius: 7px; padding: 12px 14px; font-size: 12px;
+      color: #1a2744; line-height: 1.7;
+    }
+
+    .btn-primary {
+      background: #3b5bdb; border: none; color: #fff;
+      padding: 8px 22px; border-radius: 6px; font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: all 0.15s;
+    }
+
+    .btn-primary:hover { background: #2f4ac4; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: #fff; border: 1px solid #dde3ed; color: #6b7a99;
+      padding: 8px 22px; border-radius: 6px; font-size: 13px;
+      cursor: pointer; transition: all 0.15s;
+    }
+
+    .btn-secondary:hover { background: #f5f7fb; color: #1a2744; }
+
+    .success-banner {
+      background: #eafaf1; border: 1px solid #a9dfbf;
+      border-radius: 7px; padding: 10px 14px;
+      font-size: 13px; color: #27ae60; font-weight: 600;
+    }
+
+    .tracking-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #eef2ff; border: 1px solid #c5d0fb;
+      border-radius: 6px; padding: 4px 10px;
+      font-size: 12px; color: #3b5bdb; font-weight: 600;
+    }
+
+    .empty-state {
+      text-align: center; padding: 70px 20px; color: #aab4c8;
+    }
+
+    .empty-state .icon { font-size: 44px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    #toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: #1a2744; color: #fff; padding: 10px 22px;
+      border-radius: 8px; font-size: 13px; font-weight: 600;
+      opacity: 0; transition: all 0.3s; z-index: 200;
+      white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.error   { background: #e74c3c; }
+    #toast.success { background: #27ae60; }
+  </style>
+</head>
+<body>
+
+<div id="toolbar">
+  <div class="toolbar-title">📦 寄單</div>
+  <div class="status-tabs">
+    <button class="status-tab active" data-status="pending">
+      待寄出 <span class="tab-count" id="cntPending">0</span>
+    </button>
+    <button class="status-tab" data-status="done">已寄出</button>
+    <button class="status-tab" data-status="all">全部</button>
+  </div>
+  <select class="store-select" id="storeSelect">
+    <option value="all">全部網店</option>
+    <option value="ricoutlet">Ricoutlet</option>
+    <option value="hape">Eurekakids</option>
+  </select>
+  <div class="search-box">
+    <span style="color:#aab4c8">🔍</span>
+    <input type="text" id="searchInput" placeholder="搜尋訂單號 / 客戶名...">
+  </div>
+  <button class="btn-refresh" id="btnRefresh">↻ 更新</button>
+</div>
+
+<div id="summary">
+  <div class="sum-item">
+    <div class="sum-val warn" id="sumPending">—</div>
+    <div class="sum-label">待寄出</div>
+  </div>
+  <div class="sum-divider"></div>
+  <div class="sum-item">
+    <div class="sum-val ok" id="sumDone">—</div>
+    <div class="sum-label">今日已寄</div>
+  </div>
+  <div class="sum-divider"></div>
+  <div class="sum-item">
+    <div class="sum-val blue" id="sumTotal">—</div>
+    <div class="sum-label">總訂單</div>
+  </div>
+</div>
+
+<div id="table-area">
+  <table id="ordersTable">
+    <thead>
+      <tr>
+        <th>訂單號</th>
+        <th>收貨人</th>
+        <th>地址</th>
+        <th>商品</th>
+        <th>網店</th>
+        <th>下單時間</th>
+        <th>狀態</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="ordersBody"></tbody>
+  </table>
+  <div id="emptyState" class="empty-state" style="display:none">
+    <div class="icon">📦</div>
+    <p>暫無待寄出訂單</p>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="shipModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">📦 寄單詳情</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal()">關閉</button>
+      <button class="btn-primary" id="btnShip">✈ 已寄出</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="db.js"></script>
+<script>
+
+// ── 貨運業者清單 ────────────────────────────────────────────────
+const COURIERS = [
+  { value: 'Other',           label: '其他貨運業者' },
+  { value: 'SF Express',      label: 'SF Express（順豐）' },
+  { value: 'Hongkong Post',   label: '香港郵政' },
+  { value: 'DHL Express',     label: 'DHL Express' },
+  { value: 'FedEx',           label: 'FedEx' },
+  { value: 'UPS',             label: 'UPS' },
+  { value: 'Kerry Logistics', label: 'Kerry Express' },
+  { value: 'Lalamove',        label: 'Lalamove' },
+]
+
+// ── Store Map ───────────────────────────────────────────────────
+const STORE_MAP = {
+  eurekakids: { key: 'hape', name: 'Eurekakids' },
+  ricoutlet:  { key: 'ricoutlet', name: 'Ricoutlet' }
+}
+
+// ── Shopify → UI 格式轉換 ───────────────────────────────────────
+function mapShopifyOrder(o, storeKey) {
+  const store = STORE_MAP[storeKey] || { key: storeKey, name: storeKey }
+  const status = o.fulfillment_status === 'fulfilled' ? 'fulfilled' : 'pending'
+  const fulfillment = o.fulfillments?.[0]
+  const addr = o.shipping_address || o.billing_address || {}
+  const addrLine = [addr.address1, addr.address2, addr.city, addr.province]
+    .filter(Boolean).join(', ')
+
+  return {
+    id: o.name,
+    shopifyId: String(o.id),
+    customer: {
+      name: o.shipping_address
+        ? `${o.shipping_address.first_name || ''}${o.shipping_address.last_name || ''}`.trim()
+        : o.customer
+          ? `${o.customer.first_name || ''}${o.customer.last_name || ''}`.trim()
+          : '—',
+      phone: addr.phone || o.customer?.phone || '—',
+      address: addrLine || '—',
+      address1: addr.address1 || '',
+      address2: addr.address2 || '',
+      city: addr.city || '',
+      province: addr.province || '',
+      country: addr.country || '',
+      zip: addr.zip || '',
+    },
+    items: (o.line_items || []).map(i => ({
+      sku: i.sku || '—',
+      name: i.title || i.name,
+      qty: i.quantity,
+      variant: i.variant_title || ''
+    })),
+    store: store.key,
+    storeName: store.name,
+    createdAt: o.created_at,
+    status,
+    note: o.note || '',
+    tracking: fulfillment?.tracking_number || '',
+    courier: fulfillment?.tracking_company || '',
+    shippedAt: fulfillment?.created_at || null,
+  }
+}
+
+// ── State ───────────────────────────────────────────────────────
+let allOrders = [], curStatus = 'pending', curStore = 'all', selectedOrder = null
+
+// ── Init ────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  loadOrders()
+  document.querySelectorAll('.status-tab').forEach(btn =>
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.status-tab').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      curStatus = btn.dataset.status
+      renderTable()
+    })
+  )
+  document.getElementById('storeSelect').addEventListener('change', e => {
+    curStore = e.target.value; renderTable()
+  })
+  document.getElementById('searchInput').addEventListener('input', renderTable)
+  document.getElementById('btnRefresh').addEventListener('click', loadOrders)
+})
+
+// ── Load ────────────────────────────────────────────────────────
+async function loadOrders() {
+  const btn = document.getElementById('btnRefresh')
+  btn.textContent = '↻ 載入中...'; btn.disabled = true
+  try {
+    const [ek, ric] = await Promise.all([
+      DB.getOrders('eurekakids', ''),
+      DB.getOrders('ricoutlet', '')
+    ])
+    const ekMapped  = (ek  || []).map(o => mapShopifyOrder(o, 'eurekakids'))
+    const ricMapped = (ric || []).map(o => mapShopifyOrder(o, 'ricoutlet'))
+    allOrders = [...ekMapped, ...ricMapped]
+    renderTable()
+    updateSummary()
+  } catch(e) {
+    console.error(e)
+    showToast('載入失敗，請重試', 'error')
+  } finally {
+    btn.textContent = '↻ 更新'; btn.disabled = false
+  }
+}
+
+// ── Render ──────────────────────────────────────────────────────
+function renderTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase()
+  const list = allOrders.filter(o => {
+    const ms = curStatus === 'all' ? true
+      : curStatus === 'pending' ? o.status === 'pending'
+      : o.status === 'fulfilled'
+    const mv = curStore === 'all' || o.store === curStore
+    const mq = !q || o.id.toLowerCase().includes(q) || o.customer.name.toLowerCase().includes(q)
+    return ms && mv && mq
+  })
+
+  const tbody = document.getElementById('ordersBody')
+  const empty = document.getElementById('emptyState')
+
+  if (!list.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return }
+  empty.style.display = 'none'
+
+  tbody.innerHTML = list.map(o => {
+    const itemLine = o.items.length === 1
+      ? o.items[0].name
+      : `${o.items[0].name} 等 ${o.items.length} 件`
+
+    const badge = o.status === 'fulfilled'
+      ? `<span class="badge badge-done">✓ 已寄出</span>`
+      : `<span class="badge badge-pending">⏳ 待寄出</span>`
+
+    const action = o.status === 'pending'
+      ? `<button class="btn-ship" onclick="event.stopPropagation();openModal('${o.id}')">✈ 登記寄出</button>`
+      : `<span style="color:#aab4c8;font-size:11px">${o.tracking || '—'}</span>`
+
+    return `
+      <tr onclick="openModal('${o.id}')">
+        <td><span class="order-id">${o.id}</span></td>
+        <td>
+          <div style="font-weight:600;color:#1a2744">${o.customer.name}</div>
+          <div style="color:#aab4c8;font-size:11px">${o.customer.phone}</div>
+        </td>
+        <td><div class="addr-text">${o.customer.address}</div></td>
+        <td>
+          <div style="color:#1a2744">${itemLine}</div>
+          <div style="color:#aab4c8;font-size:11px">${o.items.length} 件商品</div>
+        </td>
+        <td><span class="store-tag">${o.storeName}</span></td>
+        <td style="color:#6b7a99">${fmtDate(o.createdAt)}</td>
+        <td>${badge}</td>
+        <td onclick="event.stopPropagation()">${action}</td>
+      </tr>`
+  }).join('')
+}
+
+// ── Summary ─────────────────────────────────────────────────────
+function updateSummary() {
+  const pending = allOrders.filter(o => o.status === 'pending')
+  const todayDone = allOrders.filter(o => {
+    if (o.status !== 'fulfilled' || !o.shippedAt) return false
+    return new Date(o.shippedAt).toDateString() === new Date().toDateString()
+  })
+  document.getElementById('sumPending').textContent = pending.length
+  document.getElementById('sumDone').textContent    = todayDone.length
+  document.getElementById('sumTotal').textContent   = allOrders.length
+  document.getElementById('cntPending').textContent = pending.length
+  window.parent.postMessage({ type: 'badge', key: 'shipping', count: pending.length }, '*')
+}
+
+// ── Modal ───────────────────────────────────────────────────────
+function openModal(orderId) {
+  selectedOrder = allOrders.find(o => o.id === orderId)
+  if (!selectedOrder) return
+  const o = selectedOrder
+  const isDone = o.status === 'fulfilled'
+
+  document.getElementById('modalTitle').textContent = isDone ? '📋 寄單詳情' : '📦 登記寄出'
+
+  const addrFull = [o.customer.address1, o.customer.address2,
+    o.customer.city, o.customer.province,
+    o.customer.country, o.customer.zip]
+    .filter(Boolean).join('\n')
+
+  const courierOptions = COURIERS.map(c =>
+    `<option value="${c.value}">${c.label}</option>`
+  ).join('')
+
+  document.getElementById('modalBody').innerHTML = `
+    <!-- 收件資料 -->
+    <div class="section-title">收件資料</div>
+    <div class="info-row">
+      <span class="info-label">訂單號</span>
+      <span class="info-value" style="color:#2563eb;font-weight:700">${o.id}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">收貨人</span>
+      <span class="info-value"><strong>${o.customer.name}</strong>
+        &nbsp;<span style="color:#6b7a99">${o.customer.phone}</span>
+      </span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">收件地址</span>
+      <span class="info-value">
+        <div class="address-box">${addrFull || '—'}</div>
+      </span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">網店</span>
+      <span class="info-value"><span class="store-tag">${o.storeName}</span></span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">下單時間</span>
+      <span class="info-value">${fmtDate(o.createdAt)}</span>
+    </div>
+    ${o.note ? `
+    <div class="info-row">
+      <span class="info-label">備註</span>
+      <span class="info-value" style="background:#fffbee;border:1px solid #f5d48a;border-radius:6px;padding:6px 10px;font-size:12px;color:#a07000">${o.note}</span>
+    </div>` : ''}
+
+    <hr class="divider">
+
+    <!-- 商品明細 -->
+    <div class="section-title">商品明細</div>
+    <div class="items-list">
+      ${o.items.map(item => `
+        <div class="item-row">
+          <div class="item-icon">📦</div>
+          <div style="flex:1">
+            <div class="item-name">${item.name}</div>
+            <div class="item-sku">${item.sku}${item.variant ? ' · ' + item.variant : ''}</div>
+          </div>
+          <div class="item-qty">× ${item.qty}</div>
+        </div>`).join('')}
+    </div>
+
+    <hr class="divider">
+
+    ${isDone ? `
+      <!-- 已寄出 -->
+      <div class="success-banner">✓ 已寄出&nbsp;&nbsp;·&nbsp;&nbsp;${fmtDate(o.shippedAt)}</div>
+      ${o.tracking ? `
+      <div style="margin-top:10px">
+        <div class="section-title">運單資料</div>
+        <div class="info-row">
+          <span class="info-label">貨運業者</span>
+          <span class="info-value">${o.courier || '—'}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">追蹤編號</span>
+          <span class="info-value">
+            <span class="tracking-badge">🔍 ${o.tracking}</span>
+          </span>
+        </div>
+      </div>` : ''}
+    ` : `
+      <!-- 輸入運單資料 -->
+      <div class="section-title">運單資料</div>
+      <div class="tracking-grid">
+        <div class="form-group">
+          <label class="form-label">追蹤編號</label>
+          <input class="form-input" id="trackingNumber"
+            type="text" placeholder="例：SF1234567890">
+        </div>
+        <div class="form-group">
+          <label class="form-label">貨運業者</label>
+          <select class="form-select" id="courierSelect">
+            ${courierOptions}
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:#aab4c8">
+        ✉ 系統將自動通知買家寄出狀態
+      </div>
+    `}
+  `
+
+  const shipBtn = document.getElementById('btnShip')
+  if (isDone) {
+    shipBtn.style.display = 'none'
+  } else {
+    shipBtn.style.display = 'inline-block'
+    shipBtn.textContent = '✈ 已寄出'
+    shipBtn.disabled = false
+    shipBtn.onclick = doShip
+  }
+
+  document.getElementById('shipModal').classList.add('open')
+}
+
+function closeModal() {
+  document.getElementById('shipModal').classList.remove('open')
+  selectedOrder = null
+}
+
+// ── Ship ────────────────────────────────────────────────────────
+async function doShip() {
+  const trackingNumber = document.getElementById('trackingNumber')?.value.trim()
+  const courierValue   = document.getElementById('courierSelect')?.value
+
+  if (!trackingNumber) { showToast('請輸入追蹤編號', 'error'); return }
+
+  const btn = document.getElementById('btnShip')
+  btn.textContent = '處理中...'; btn.disabled = true
+
+  try {
+    const storeKey = selectedOrder.store === 'hape' ? 'eurekakids' : selectedOrder.store
+
+    // 取得 fulfillment_order
+    const foData = await DB._shopifyFetch(
+      storeKey,
+      `orders/${selectedOrder.shopifyId}/fulfillment_orders.json`
+    )
+    const fulfillmentOrders = foData.fulfillment_orders || []
+    const openFO = fulfillmentOrders.find(fo =>
+      fo.status === 'open' || fo.status === 'in_progress'
+    )
+    if (!openFO) throw new Error('No open fulfillment order')
+
+    // 建立 fulfillment
+    const result = await DB._shopifyFetch(storeKey, 'fulfillments.json', {
+      method: 'POST',
+      body: {
+        fulfillment: {
+          line_items_by_fulfillment_order: [
+            { fulfillment_order_id: openFO.id }
+          ],
+          tracking_info: {
+            number: trackingNumber,
+            company: courierValue || 'Other'
+          },
+          notify_customer: true
+        }
+      }
+    })
+
+    if (result?.errors || result?.error) {
+      throw new Error(JSON.stringify(result.errors || result.error))
+    }
+
+    // 更新本地狀態
+    const idx = allOrders.findIndex(o => o.id === selectedOrder.id)
+    if (idx > -1) {
+      allOrders[idx].status    = 'fulfilled'
+      allOrders[idx].tracking  = trackingNumber
+      allOrders[idx].courier   = courierValue
+      allOrders[idx].shippedAt = new Date().toISOString()
+    }
+
+    const id = selectedOrder.id
+    closeModal(); renderTable(); updateSummary()
+    showToast(`✓ 訂單 ${id} 已登記寄出`, 'success')
+
+  } catch(e) {
+    console.error('doShip error:', e)
+    showToast(`失敗：${e.message}`, 'error')
+    btn.textContent = '✈ 已寄出'; btn.disabled = false
+  }
+}
+
+// ── Helpers ─────────────────────────────────────────────────────
+function fmtDate(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.className = type
+  t.classList.add('show')
+  setTimeout(() => t.classList.remove('show'), 3000)
+}
+
+</script>
+</body>
+</html>
