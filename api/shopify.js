@@ -1,4 +1,4 @@
-// lib/shopify.js
+// api/shopify.js
 
 const tokenCache = {};
 
@@ -26,18 +26,17 @@ async function getAccessToken(storeKey) {
     return cached.token;
   }
 
-  const params = new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: store.clientId,
-    client_secret: store.clientSecret,
-  });
+  const params = new URLSearchParams();
+  params.append('grant_type', 'client_credentials');
+  params.append('client_id', store.clientId);
+  params.append('client_secret', store.clientSecret);
 
   const res = await fetch(
     `https://${store.handle}.myshopify.com/admin/oauth/access_token`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params,
+      body: params.toString(),
     }
   );
 
@@ -57,31 +56,42 @@ async function getAccessToken(storeKey) {
   return data.access_token;
 }
 
-async function shopifyFetch(storeKey, endpoint, options = {}) {
-  const store = STORES[storeKey];
-  const token = await getAccessToken(storeKey);
-
-  const url = `https://${store.handle}.myshopify.com/admin/api/2025-04/${endpoint}`;
-
-  const fetchOptions = {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Shopify-Access-Token': token,
-      ...options.headers,
-    },
-  };
-
-  let res = await fetch(url, fetchOptions);
-
-  if (res.status === 401) {
-    delete tokenCache[storeKey];
-    const newToken = await getAccessToken(storeKey);
-    fetchOptions.headers['X-Shopify-Access-Token'] = newToken;
-    res = await fetch(url, fetchOptions);
+module.exports = async (req, res) => {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  return res;
-}
+  // 防止 body 未 parse
+  let body = req.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch (e) { body = {}; }
+  }
 
-module.exports = { shopifyFetch };
+  const { store, endpoint, method = 'GET', body: reqBody } = body || {};
+
+  if (!store || !endpoint) {
+    return res.status(400).json({ error: 'Missing store or endpoint' });
+  }
+
+  try {
+    const token = await getAccessToken(store);
+    const storeHandle = STORES[store].handle;
+    const url = `https://${storeHandle}.myshopify.com/admin/api/2025-04/${endpoint}`;
+
+    const shopifyRes = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': token,
+      },
+      body: reqBody ? JSON.stringify(reqBody) : undefined,
+    });
+
+    const data = await shopifyRes.json();
+    return res.status(shopifyRes.status).json(data);
+
+  } catch (err) {
+    console.error('[shopify error]', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+};
