@@ -8,7 +8,7 @@ const DB_CONFIG = {
   source: 'google', // ⬅️ 轉移時只改這一個字
 
   google: {
-    scriptUrl: '' // 填入 Apps Script Web App URL
+    scriptUrl: 'https://script.google.com/macros/s/AKfycbwNAlZrmbPHKywdIUB9Esur7j1cEqyZ3xhqCP0hNrYrwE1JM6ntG2qp409Ic-2m6MBTpw/exec'
   },
 
   supabase: {
