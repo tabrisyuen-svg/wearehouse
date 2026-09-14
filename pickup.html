@@ -9,56 +9,67 @@
 
     body {
       font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #131929;
-      color: #e0e0e0;
+      background: #f0f4f8;
+      color: #1a2744;
       height: 100vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      font-size: 13px;
     }
 
     /* ── Toolbar ── */
     #toolbar {
-      background: #1a2744;
-      border-bottom: 1px solid #1e3158;
-      padding: 10px 16px;
+      background: #fff;
+      border-bottom: 1px solid #dde3ed;
+      padding: 9px 16px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       flex-shrink: 0;
+      flex-wrap: wrap;
     }
 
     .toolbar-title {
       font-size: 14px;
       font-weight: 700;
-      color: #fff;
+      color: #1a2744;
       white-space: nowrap;
+      margin-right: 4px;
     }
 
+    /* Status tabs */
     .status-tabs {
       display: flex;
       gap: 3px;
-      background: #0f1624;
+      background: #f0f4f8;
       border-radius: 6px;
       padding: 3px;
+      border: 1px solid #dde3ed;
     }
 
     .status-tab {
-      padding: 5px 14px;
+      padding: 5px 13px;
       border-radius: 4px;
       font-size: 12px;
       cursor: pointer;
       border: none;
-      color: #7890b0;
+      color: #6b7a99;
       background: none;
       transition: all 0.15s;
       display: flex;
       align-items: center;
       gap: 5px;
       white-space: nowrap;
+      font-weight: 500;
     }
 
-    .status-tab.active { background: #1e3a6e; color: #fff; }
+    .status-tab.active {
+      background: #fff;
+      color: #1a2744;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      font-weight: 600;
+    }
 
     .tab-count {
       background: #e74c3c;
@@ -72,10 +83,11 @@
       line-height: 14px;
     }
 
+    /* Store select */
     .store-select {
-      background: #0f1624;
-      border: 1px solid #1e3158;
-      color: #e0e0e0;
+      background: #fff;
+      border: 1px solid #dde3ed;
+      color: #1a2744;
       padding: 6px 10px;
       border-radius: 6px;
       font-size: 12px;
@@ -83,34 +95,36 @@
       outline: none;
     }
 
+    /* Search */
     .search-box {
       display: flex;
       align-items: center;
-      background: #0f1624;
-      border: 1px solid #1e3158;
+      background: #fff;
+      border: 1px solid #dde3ed;
       border-radius: 6px;
       padding: 0 10px;
       gap: 6px;
       flex: 1;
-      max-width: 260px;
+      max-width: 240px;
     }
 
     .search-box input {
       background: none;
       border: none;
-      color: #e0e0e0;
+      color: #1a2744;
       font-size: 12px;
       outline: none;
       padding: 6px 0;
       width: 100%;
     }
 
-    .search-box input::placeholder { color: #3a5070; }
+    .search-box input::placeholder { color: #aab4c8; }
 
+    /* Refresh btn */
     .btn-refresh {
-      background: #1e3a6e;
-      border: 1px solid #2a5298;
-      color: #7ab0ff;
+      background: #1a2744;
+      border: none;
+      color: #fff;
       padding: 6px 14px;
       border-radius: 6px;
       font-size: 12px;
@@ -121,79 +135,99 @@
       margin-left: auto;
       transition: all 0.15s;
       white-space: nowrap;
+      font-weight: 500;
     }
 
-    .btn-refresh:hover { background: #2a4a7e; }
+    .btn-refresh:hover { background: #243460; }
     .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* ── Summary ── */
+    /* ── Summary bar ── */
     #summary {
-      background: #162035;
-      border-bottom: 1px solid #1e3158;
+      background: #fff;
+      border-bottom: 1px solid #dde3ed;
       padding: 8px 20px;
       display: flex;
-      gap: 32px;
+      gap: 28px;
       flex-shrink: 0;
+      align-items: center;
     }
 
     .sum-item {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 12px;
-      color: #7890b0;
+      gap: 8px;
     }
 
     .sum-val {
-      font-size: 20px;
+      font-size: 22px;
       font-weight: 700;
-      color: #fff;
+      color: #1a2744;
       min-width: 28px;
+      line-height: 1;
     }
 
-    .sum-val.warn { color: #f39c12; }
-    .sum-val.ok   { color: #2ecc71; }
+    .sum-val.warn   { color: #e67e22; }
+    .sum-val.ok     { color: #27ae60; }
     .sum-val.danger { color: #e74c3c; }
+
+    .sum-label {
+      font-size: 11px;
+      color: #6b7a99;
+      line-height: 1.3;
+    }
+
+    .sum-divider {
+      width: 1px;
+      height: 32px;
+      background: #dde3ed;
+    }
 
     /* ── Table area ── */
     #table-area {
       flex: 1;
       overflow-y: auto;
-      padding: 16px;
+      padding: 14px 16px;
     }
 
-    #table-area::-webkit-scrollbar { width: 4px; }
+    #table-area::-webkit-scrollbar { width: 5px; }
     #table-area::-webkit-scrollbar-track { background: transparent; }
-    #table-area::-webkit-scrollbar-thumb { background: #1e3158; border-radius: 2px; }
+    #table-area::-webkit-scrollbar-thumb { background: #c8d0e0; border-radius: 3px; }
 
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 12px;
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
     }
 
     thead th {
-      background: #1a2744;
-      color: #7890b0;
+      background: #f5f7fb;
+      color: #6b7a99;
       font-weight: 600;
-      padding: 10px 12px;
+      padding: 10px 14px;
       text-align: left;
-      border-bottom: 1px solid #1e3158;
+      border-bottom: 1px solid #dde3ed;
       white-space: nowrap;
-      position: sticky;
-      top: 0;
-      z-index: 1;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
     }
 
     tbody tr {
-      border-bottom: 1px solid #1a2a44;
+      border-bottom: 1px solid #eef1f7;
       transition: background 0.1s;
+      cursor: pointer;
     }
 
-    tbody tr:hover { background: rgba(74,143,232,0.06); cursor: pointer; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #f5f8ff; }
 
-    tbody td { padding: 10px 12px; vertical-align: middle; }
+    tbody td { padding: 10px 14px; vertical-align: middle; }
 
+    /* Badges */
     .badge {
       display: inline-flex;
       align-items: center;
@@ -206,32 +240,52 @@
     }
 
     .badge-pending {
-      background: rgba(243,156,18,0.15);
-      color: #f39c12;
-      border: 1px solid rgba(243,156,18,0.3);
+      background: #fff8e6;
+      color: #e67e22;
+      border: 1px solid #f5d48a;
     }
 
     .badge-done {
-      background: rgba(46,204,113,0.15);
-      color: #2ecc71;
-      border: 1px solid rgba(46,204,113,0.3);
+      background: #eafaf1;
+      color: #27ae60;
+      border: 1px solid #a9dfbf;
     }
 
     .badge-overdue {
-      background: rgba(231,76,60,0.15);
+      background: #fdedec;
       color: #e74c3c;
-      border: 1px solid rgba(231,76,60,0.3);
+      border: 1px solid #f5b7b1;
     }
 
-    .wait { color: #7890b0; }
-    .wait.warn   { color: #f39c12; font-weight: 600; }
+    /* Order ID */
+    .order-id {
+      color: #2563eb;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    /* Wait time */
+    .wait { color: #6b7a99; }
+    .wait.warn   { color: #e67e22; font-weight: 600; }
     .wait.danger { color: #e74c3c; font-weight: 600; }
 
+    /* Store tag */
+    .store-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #eef2ff;
+      color: #3b5bdb;
+    }
+
+    /* Confirm button */
     .btn-confirm {
-      background: #1a5c3a;
-      border: 1px solid #2a8c5a;
-      color: #2ecc71;
-      padding: 5px 12px;
+      background: #eafaf1;
+      border: 1px solid #a9dfbf;
+      color: #27ae60;
+      padding: 5px 13px;
       border-radius: 5px;
       font-size: 11px;
       font-weight: 600;
@@ -240,14 +294,14 @@
       white-space: nowrap;
     }
 
-    .btn-confirm:hover { background: #1f7a4a; }
+    .btn-confirm:hover { background: #d5f5e3; }
 
     /* ── Modal ── */
     .modal-overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.7);
+      background: rgba(26,39,68,0.45);
       z-index: 100;
       align-items: center;
       justify-content: center;
@@ -256,38 +310,38 @@
     .modal-overlay.open { display: flex; }
 
     .modal {
-      background: #1a2744;
-      border: 1px solid #1e3158;
+      background: #fff;
+      border: 1px solid #dde3ed;
       border-radius: 10px;
       width: 520px;
       max-width: 92vw;
-      max-height: 85vh;
+      max-height: 86vh;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.18);
     }
 
     .modal-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid #1e3158;
+      padding: 15px 20px;
+      border-bottom: 1px solid #dde3ed;
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-shrink: 0;
     }
 
-    .modal-header h3 { font-size: 14px; font-weight: 700; color: #fff; }
+    .modal-header h3 { font-size: 14px; font-weight: 700; color: #1a2744; }
 
     .modal-close {
       background: none;
       border: none;
-      color: #7890b0;
+      color: #aab4c8;
       font-size: 18px;
       cursor: pointer;
       line-height: 1;
     }
 
-    .modal-close:hover { color: #fff; }
+    .modal-close:hover { color: #1a2744; }
 
     .modal-body {
       padding: 20px;
@@ -296,49 +350,53 @@
     }
 
     .modal-footer {
-      padding: 14px 20px;
-      border-top: 1px solid #1e3158;
+      padding: 13px 20px;
+      border-top: 1px solid #dde3ed;
       display: flex;
       justify-content: flex-end;
       gap: 8px;
       flex-shrink: 0;
+      background: #f9fbfd;
+      border-radius: 0 0 10px 10px;
     }
 
     .info-row {
       display: flex;
       gap: 10px;
       margin-bottom: 10px;
-      font-size: 12px;
+      font-size: 13px;
       align-items: baseline;
     }
 
     .info-label {
-      color: #7890b0;
+      color: #6b7a99;
       width: 72px;
       flex-shrink: 0;
+      font-size: 12px;
     }
 
-    .info-value { color: #e0e0e0; flex: 1; }
+    .info-value { color: #1a2744; flex: 1; }
 
     .divider {
       border: none;
-      border-top: 1px solid #1e3158;
-      margin: 16px 0;
+      border-top: 1px solid #eef1f7;
+      margin: 14px 0;
     }
 
     .items-list {
-      border: 1px solid #1e3158;
-      border-radius: 6px;
+      border: 1px solid #dde3ed;
+      border-radius: 7px;
       overflow: hidden;
     }
 
     .item-row {
       display: flex;
       align-items: center;
-      padding: 9px 12px;
-      border-bottom: 1px solid #1a2a44;
+      padding: 9px 13px;
+      border-bottom: 1px solid #eef1f7;
       gap: 10px;
       font-size: 12px;
+      background: #fff;
     }
 
     .item-row:last-child { border-bottom: none; }
@@ -346,8 +404,8 @@
     .item-icon {
       width: 34px;
       height: 34px;
-      background: #0f1624;
-      border-radius: 4px;
+      background: #f0f4f8;
+      border-radius: 5px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -355,32 +413,33 @@
       flex-shrink: 0;
     }
 
-    .item-name { color: #e0e0e0; margin-bottom: 2px; }
-    .item-sku  { color: #7890b0; font-size: 11px; }
-    .item-qty  { color: #fff; font-weight: 700; margin-left: auto; font-size: 13px; }
+    .item-name { color: #1a2744; margin-bottom: 2px; font-weight: 500; }
+    .item-sku  { color: #6b7a99; font-size: 11px; }
+    .item-qty  { color: #1a2744; font-weight: 700; margin-left: auto; font-size: 13px; }
 
     .form-label {
       font-size: 12px;
-      color: #7890b0;
-      margin-bottom: 6px;
+      color: #6b7a99;
+      margin-bottom: 7px;
       display: block;
+      font-weight: 500;
     }
 
     .staff-select {
       width: 100%;
-      background: #0f1624;
-      border: 1px solid #1e3158;
-      color: #e0e0e0;
-      padding: 8px 12px;
-      border-radius: 6px;
+      background: #fff;
+      border: 1px solid #dde3ed;
+      color: #1a2744;
+      padding: 9px 12px;
+      border-radius: 7px;
       font-size: 13px;
       outline: none;
     }
 
     .btn-primary {
-      background: #1a5c3a;
-      border: 1px solid #2a8c5a;
-      color: #2ecc71;
+      background: #27ae60;
+      border: none;
+      color: #fff;
       padding: 8px 22px;
       border-radius: 6px;
       font-size: 13px;
@@ -389,13 +448,13 @@
       transition: all 0.15s;
     }
 
-    .btn-primary:hover { background: #1f7a4a; }
+    .btn-primary:hover { background: #219a52; }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .btn-secondary {
-      background: #162035;
-      border: 1px solid #1e3158;
-      color: #7890b0;
+      background: #fff;
+      border: 1px solid #dde3ed;
+      color: #6b7a99;
       padding: 8px 22px;
       border-radius: 6px;
       font-size: 13px;
@@ -403,17 +462,38 @@
       transition: all 0.15s;
     }
 
-    .btn-secondary:hover { background: #1a2744; color: #e0e0e0; }
+    .btn-secondary:hover { background: #f5f7fb; color: #1a2744; }
 
-    /* ── Empty ── */
+    /* ── Empty state ── */
     .empty-state {
       text-align: center;
       padding: 70px 20px;
-      color: #3a5070;
+      color: #aab4c8;
     }
 
     .empty-state .icon { font-size: 44px; margin-bottom: 12px; }
     .empty-state p { font-size: 14px; }
+
+    /* ── Note box ── */
+    .note-box {
+      background: #fffbee;
+      border: 1px solid #f5d48a;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #a07000;
+    }
+
+    /* ── Success banner in modal ── */
+    .success-banner {
+      background: #eafaf1;
+      border: 1px solid #a9dfbf;
+      border-radius: 7px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #27ae60;
+      font-weight: 600;
+    }
 
     /* ── Toast ── */
     #toast {
@@ -421,9 +501,8 @@
       bottom: 24px;
       left: 50%;
       transform: translateX(-50%) translateY(16px);
-      background: #1a5c3a;
-      border: 1px solid #2a8c5a;
-      color: #2ecc71;
+      background: #1a2744;
+      color: #fff;
       padding: 10px 22px;
       border-radius: 8px;
       font-size: 13px;
@@ -433,10 +512,12 @@
       z-index: 200;
       white-space: nowrap;
       pointer-events: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
     }
 
     #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-    #toast.error { background: #5c1a1a; border-color: #8c2a2a; color: #e74c3c; }
+    #toast.error { background: #e74c3c; }
+    #toast.success { background: #27ae60; }
   </style>
 </head>
 <body>
@@ -460,32 +541,28 @@
   </select>
 
   <div class="search-box">
-    <span style="color:#3a5070">🔍</span>
+    <span style="color:#aab4c8">🔍</span>
     <input type="text" id="searchInput" placeholder="搜尋訂單號 / 客戶名...">
   </div>
 
   <button class="btn-refresh" id="btnRefresh">↻ 更新</button>
 </div>
 
-<!-- Summary -->
+<!-- Summary bar -->
 <div id="summary">
   <div class="sum-item">
-    <div>
-      <div class="sum-val warn" id="sumPending">—</div>
-      <div>待取貨</div>
-    </div>
+    <div class="sum-val warn" id="sumPending">—</div>
+    <div class="sum-label">待取貨</div>
   </div>
+  <div class="sum-divider"></div>
   <div class="sum-item">
-    <div>
-      <div class="sum-val ok" id="sumDone">—</div>
-      <div>今日完成</div>
-    </div>
+    <div class="sum-val ok" id="sumDone">—</div>
+    <div class="sum-label">今日完成</div>
   </div>
+  <div class="sum-divider"></div>
   <div class="sum-item">
-    <div>
-      <div class="sum-val danger" id="sumOverdue">—</div>
-      <div>超時 &gt;24h</div>
-    </div>
+    <div class="sum-val danger" id="sumOverdue">—</div>
+    <div class="sum-label">超時 &gt;24h</div>
   </div>
 </div>
 
@@ -531,7 +608,7 @@
 <div id="toast"></div>
 
 <script>
-// ── Mock data（接通 DB.getOrders() 後移除）──────────────────
+// ── Mock data ─────────────────────────────────────────────────
 const MOCK_ORDERS = [
   {
     id: '#10045', shopifyId: '10045',
@@ -542,47 +619,35 @@ const MOCK_ORDERS = [
     ],
     store: 'hape', storeName: 'Hape HK',
     createdAt: new Date(Date.now() - 1.5 * 3600000).toISOString(),
-    status: 'pending_pickup',
-    note: '請致電通知客人'
+    status: 'pending_pickup', note: '請致電通知客人'
   },
   {
     id: '#10046', shopifyId: '10046',
     customer: { name: '李小明', phone: '9876 5432' },
-    items: [
-      { sku: 'RIC-088', name: 'Ricoutlet 玩具組合', qty: 1 }
-    ],
+    items: [{ sku: 'RIC-088', name: 'Ricoutlet 玩具組合', qty: 1 }],
     store: 'ricoutlet', storeName: 'Ricoutlet',
     createdAt: new Date(Date.now() - 26 * 3600000).toISOString(),
-    status: 'pending_pickup',
-    note: ''
+    status: 'pending_pickup', note: ''
   },
   {
     id: '#10040', shopifyId: '10040',
     customer: { name: '王美麗', phone: '6543 2100' },
-    items: [
-      { sku: 'HAP-033', name: 'Hape 廚房玩具', qty: 1 }
-    ],
+    items: [{ sku: 'HAP-033', name: 'Hape 廚房玩具', qty: 1 }],
     store: 'hape', storeName: 'Hape HK',
     createdAt: new Date(Date.now() - 48 * 3600000).toISOString(),
-    status: 'fulfilled',
-    fulfilledBy: '小明',
-    fulfilledAt: new Date(Date.now() - 45 * 3600000).toISOString(),
-    note: ''
+    status: 'fulfilled', fulfilledBy: '小明',
+    fulfilledAt: new Date(Date.now() - 45 * 3600000).toISOString(), note: ''
   }
 ]
 
 const STAFF_LIST = ['小明', '小花', '阿偉', '阿珊']
 
-// ── State ────────────────────────────────────────────────────
-let allOrders    = []
-let curStatus    = 'pending'
-let curStore     = 'all'
-let selectedOrder = null
+// ── State ─────────────────────────────────────────────────────
+let allOrders = [], curStatus = 'pending', curStore = 'all', selectedOrder = null
 
-// ── Init ─────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   loadOrders()
-
   document.querySelectorAll('.status-tab').forEach(btn =>
     btn.addEventListener('click', () => {
       document.querySelectorAll('.status-tab').forEach(b => b.classList.remove('active'))
@@ -591,43 +656,28 @@ window.addEventListener('DOMContentLoaded', () => {
       renderTable()
     })
   )
-
-  document.getElementById('storeSelect').addEventListener('change', e => {
-    curStore = e.target.value
-    renderTable()
-  })
-
+  document.getElementById('storeSelect').addEventListener('change', e => { curStore = e.target.value; renderTable() })
   document.getElementById('searchInput').addEventListener('input', renderTable)
   document.getElementById('btnRefresh').addEventListener('click', loadOrders)
 })
 
-// ── Load ─────────────────────────────────────────────────────
+// ── Load ──────────────────────────────────────────────────────
 async function loadOrders() {
   const btn = document.getElementById('btnRefresh')
-  btn.textContent = '↻ 載入中...'
-  btn.disabled = true
+  btn.textContent = '↻ 載入中...'; btn.disabled = true
   try {
     // TODO: allOrders = await DB.getOrders('all', '')
     allOrders = MOCK_ORDERS
-    renderTable()
-    updateSummary()
-  } catch(e) {
-    showToast('載入失敗，請重試', 'error')
-  } finally {
-    btn.textContent = '↻ 更新'
-    btn.disabled = false
-  }
+    renderTable(); updateSummary()
+  } catch(e) { showToast('載入失敗，請重試', 'error') }
+  finally { btn.textContent = '↻ 更新'; btn.disabled = false }
 }
 
-// ── Render ───────────────────────────────────────────────────
+// ── Render ────────────────────────────────────────────────────
 function renderTable() {
   const q = document.getElementById('searchInput').value.toLowerCase()
-
   const list = allOrders.filter(o => {
-    const ms =
-      curStatus === 'all'     ? true :
-      curStatus === 'pending' ? o.status === 'pending_pickup' :
-                                o.status === 'fulfilled'
+    const ms = curStatus === 'all' ? true : curStatus === 'pending' ? o.status === 'pending_pickup' : o.status === 'fulfilled'
     const mv = curStore === 'all' || o.store === curStore
     const mq = !q || o.id.toLowerCase().includes(q) || o.customer.name.toLowerCase().includes(q)
     return ms && mv && mq
@@ -636,44 +686,34 @@ function renderTable() {
   const tbody = document.getElementById('ordersBody')
   const empty = document.getElementById('emptyState')
 
-  if (!list.length) {
-    tbody.innerHTML = ''
-    empty.style.display = 'block'
-    return
-  }
+  if (!list.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return }
   empty.style.display = 'none'
 
   tbody.innerHTML = list.map(o => {
     const w = waitInfo(o.createdAt)
-    const itemLine = o.items.length === 1
-      ? o.items[0].name
-      : `${o.items[0].name} 等 ${o.items.length} 件`
-
-    const badge =
-      o.status === 'fulfilled'
-        ? `<span class="badge badge-done">✓ 已完成</span>`
-        : w.h >= 24
-          ? `<span class="badge badge-overdue">⚠ 超時</span>`
-          : `<span class="badge badge-pending">⏳ 待取貨</span>`
-
-    const action =
-      o.status === 'pending_pickup'
-        ? `<button class="btn-confirm" onclick="event.stopPropagation();openModal('${o.id}')">✓ 確認取貨</button>`
-        : `<span style="color:#3a5070;font-size:11px">已由 ${o.fulfilledBy || '—'} 確認</span>`
+    const itemLine = o.items.length === 1 ? o.items[0].name : `${o.items[0].name} 等 ${o.items.length} 件`
+    const badge = o.status === 'fulfilled'
+      ? `<span class="badge badge-done">✓ 已完成</span>`
+      : w.h >= 24
+        ? `<span class="badge badge-overdue">⚠ 超時</span>`
+        : `<span class="badge badge-pending">⏳ 待取貨</span>`
+    const action = o.status === 'pending_pickup'
+      ? `<button class="btn-confirm" onclick="event.stopPropagation();openModal('${o.id}')">✓ 確認取貨</button>`
+      : `<span style="color:#aab4c8;font-size:11px">已由 ${o.fulfilledBy || '—'} 確認</span>`
 
     return `
       <tr onclick="openModal('${o.id}')">
-        <td><strong style="color:#7ab0ff">${o.id}</strong></td>
+        <td><span class="order-id">${o.id}</span></td>
         <td>
-          <div>${o.customer.name}</div>
-          <div style="color:#7890b0;font-size:11px">${o.customer.phone}</div>
+          <div style="font-weight:600;color:#1a2744">${o.customer.name}</div>
+          <div style="color:#aab4c8;font-size:11px">${o.customer.phone}</div>
         </td>
         <td>
-          <div style="color:#c0cfe0">${itemLine}</div>
-          <div style="color:#7890b0;font-size:11px">${o.items.length} 件商品</div>
+          <div style="color:#1a2744">${itemLine}</div>
+          <div style="color:#aab4c8;font-size:11px">${o.items.length} 件商品</div>
         </td>
-        <td style="color:#7890b0">${o.storeName}</td>
-        <td style="color:#7890b0">${fmtDate(o.createdAt)}</td>
+        <td><span class="store-tag">${o.storeName}</span></td>
+        <td style="color:#6b7a99">${fmtDate(o.createdAt)}</td>
         <td class="wait ${o.status==='fulfilled'?'':w.cls}">${o.status==='fulfilled'?'—':w.label}</td>
         <td>${badge}</td>
         <td onclick="event.stopPropagation()">${action}</td>
@@ -681,26 +721,22 @@ function renderTable() {
   }).join('')
 }
 
-// ── Summary ──────────────────────────────────────────────────
+// ── Summary ───────────────────────────────────────────────────
 function updateSummary() {
-  const pending = allOrders.filter(o => o.status === 'pending_pickup')
+  const pending  = allOrders.filter(o => o.status === 'pending_pickup')
   const todayDone = allOrders.filter(o => {
     if (o.status !== 'fulfilled' || !o.fulfilledAt) return false
-    const d = new Date(o.fulfilledAt), t = new Date()
-    return d.toDateString() === t.toDateString()
+    return new Date(o.fulfilledAt).toDateString() === new Date().toDateString()
   })
   const overdue = pending.filter(o => waitInfo(o.createdAt).h >= 24)
-
   document.getElementById('sumPending').textContent  = pending.length
   document.getElementById('sumDone').textContent     = todayDone.length
   document.getElementById('sumOverdue').textContent  = overdue.length
   document.getElementById('cntPending').textContent  = pending.length
-
-  // badge → parent
   window.parent.postMessage({ type: 'badge', key: 'pickup', count: pending.length }, '*')
 }
 
-// ── Modal ────────────────────────────────────────────────────
+// ── Modal ─────────────────────────────────────────────────────
 function openModal(orderId) {
   selectedOrder = allOrders.find(o => o.id === orderId)
   if (!selectedOrder) return
@@ -709,19 +745,18 @@ function openModal(orderId) {
   const isDone = o.status === 'fulfilled'
 
   document.getElementById('modalTitle').textContent = isDone ? '📋 訂單詳情' : '✅ 確認客戶取貨'
-
   document.getElementById('modalBody').innerHTML = `
     <div class="info-row">
       <span class="info-label">訂單號</span>
-      <span class="info-value" style="color:#7ab0ff;font-weight:700">${o.id}</span>
+      <span class="info-value" style="color:#2563eb;font-weight:700">${o.id}</span>
     </div>
     <div class="info-row">
       <span class="info-label">客戶</span>
-      <span class="info-value">${o.customer.name}&nbsp;&nbsp;${o.customer.phone}</span>
+      <span class="info-value">${o.customer.name}&nbsp;&nbsp;<span style="color:#6b7a99">${o.customer.phone}</span></span>
     </div>
     <div class="info-row">
       <span class="info-label">網店</span>
-      <span class="info-value">${o.storeName}</span>
+      <span class="info-value"><span class="store-tag">${o.storeName}</span></span>
     </div>
     <div class="info-row">
       <span class="info-label">下單時間</span>
@@ -730,13 +765,12 @@ function openModal(orderId) {
         ${!isDone ? `<span class="wait ${w.cls}" style="margin-left:8px">（等待 ${w.label}）</span>` : ''}
       </span>
     </div>
-    ${o.note ? `
-    <div class="info-row">
+    ${o.note ? `<div class="info-row">
       <span class="info-label">備註</span>
-      <span class="info-value" style="color:#f39c12">${o.note}</span>
+      <span class="info-value"><div class="note-box">${o.note}</div></span>
     </div>` : ''}
     <hr class="divider">
-    <div style="font-size:12px;color:#7890b0;margin-bottom:10px">商品明細</div>
+    <div style="font-size:11px;color:#6b7a99;margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px">商品明細</div>
     <div class="items-list">
       ${o.items.map(item => `
         <div class="item-row">
@@ -750,9 +784,7 @@ function openModal(orderId) {
     </div>
     <hr class="divider">
     ${isDone
-      ? `<div style="font-size:12px;color:#2ecc71;padding:4px 0">
-           ✓ 已由 <strong>${o.fulfilledBy}</strong> 確認取貨 &nbsp;·&nbsp; ${fmtDate(o.fulfilledAt)}
-         </div>`
+      ? `<div class="success-banner">✓ 已由 <strong>${o.fulfilledBy}</strong> 確認取貨&nbsp;&nbsp;·&nbsp;&nbsp;${fmtDate(o.fulfilledAt)}</div>`
       : `<label class="form-label">確認店員</label>
          <select class="staff-select" id="staffSelect">
            <option value="">— 請選擇店員 —</option>
@@ -762,15 +794,13 @@ function openModal(orderId) {
   `
 
   const confirmBtn = document.getElementById('btnConfirmPickup')
-  if (isDone) {
-    confirmBtn.style.display = 'none'
-  } else {
+  if (isDone) { confirmBtn.style.display = 'none' }
+  else {
     confirmBtn.style.display = 'inline-block'
     confirmBtn.textContent = '確認取貨'
     confirmBtn.disabled = false
     confirmBtn.onclick = doConfirm
   }
-
   document.getElementById('confirmModal').classList.add('open')
 }
 
@@ -779,47 +809,37 @@ function closeModal() {
   selectedOrder = null
 }
 
-// ── Confirm action ───────────────────────────────────────────
+// ── Confirm ───────────────────────────────────────────────────
 async function doConfirm() {
   const staff = document.getElementById('staffSelect')?.value
   if (!staff) { showToast('請選擇確認店員', 'error'); return }
-
   const btn = document.getElementById('btnConfirmPickup')
-  btn.textContent = '處理中...'
-  btn.disabled = true
-
+  btn.textContent = '處理中...'; btn.disabled = true
   try {
     // TODO: await DB.confirmPickup(selectedOrder.shopifyId, staff)
-
-    // mock update
     const idx = allOrders.findIndex(o => o.id === selectedOrder.id)
     if (idx > -1) {
       allOrders[idx].status      = 'fulfilled'
       allOrders[idx].fulfilledBy = staff
       allOrders[idx].fulfilledAt = new Date().toISOString()
     }
-
     const id = selectedOrder.id
-    closeModal()
-    renderTable()
-    updateSummary()
-    showToast(`✓ 訂單 ${id} 已確認取貨`)
+    closeModal(); renderTable(); updateSummary()
+    showToast(`✓ 訂單 ${id} 已確認取貨`, 'success')
   } catch(e) {
     showToast('操作失敗，請重試', 'error')
-    btn.textContent = '確認取貨'
-    btn.disabled = false
+    btn.textContent = '確認取貨'; btn.disabled = false
   }
 }
 
-// ── Helpers ──────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────
 function waitInfo(iso) {
   const h = (Date.now() - new Date(iso).getTime()) / 3600000
   const cls = h >= 24 ? 'danger' : h >= 8 ? 'warn' : ''
   const label = h >= 24
     ? `${Math.floor(h/24)}日${Math.floor(h%24)}時`
-    : h >= 1
-      ? `${Math.floor(h)}時${Math.floor((h%1)*60)}分`
-      : `${Math.floor(h*60)}分`
+    : h >= 1 ? `${Math.floor(h)}時${Math.floor((h%1)*60)}分`
+    : `${Math.floor(h*60)}分`
   return { h, cls, label }
 }
 
@@ -829,10 +849,10 @@ function fmtDate(iso) {
   return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
 }
 
-function showToast(msg, type = 'ok') {
+function showToast(msg, type = '') {
   const t = document.getElementById('toast')
   t.textContent = msg
-  t.className = type === 'error' ? 'error' : ''
+  t.className = type
   t.classList.add('show')
   setTimeout(() => t.classList.remove('show'), 3000)
 }
