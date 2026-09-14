@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>到店取</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #131929;
+      color: #e0e0e0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      background: #1a2744;
+      border-bottom: 1px solid #1e3158;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .toolbar-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+    }
+
+    .status-tabs {
+      display: flex;
+      gap: 3px;
+      background: #0f1624;
+      border-radius: 6px;
+      padding: 3px;
+    }
+
+    .status-tab {
+      padding: 5px 14px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      border: none;
+      color: #7890b0;
+      background: none;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .status-tab.active { background: #1e3a6e; color: #fff; }
+
+    .tab-count {
+      background: #e74c3c;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 10px;
+      min-width: 16px;
+      text-align: center;
+      line-height: 14px;
+    }
+
+    .store-select {
+      background: #0f1624;
+      border: 1px solid #1e3158;
+      color: #e0e0e0;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: #0f1624;
+      border: 1px solid #1e3158;
+      border-radius: 6px;
+      padding: 0 10px;
+      gap: 6px;
+      flex: 1;
+      max-width: 260px;
+    }
+
+    .search-box input {
+      background: none;
+      border: none;
+      color: #e0e0e0;
+      font-size: 12px;
+      outline: none;
+      padding: 6px 0;
+      width: 100%;
+    }
+
+    .search-box input::placeholder { color: #3a5070; }
+
+    .btn-refresh {
+      background: #1e3a6e;
+      border: 1px solid #2a5298;
+      color: #7ab0ff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-left: auto;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-refresh:hover { background: #2a4a7e; }
+    .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Summary ── */
+    #summary {
+      background: #162035;
+      border-bottom: 1px solid #1e3158;
+      padding: 8px 20px;
+      display: flex;
+      gap: 32px;
+      flex-shrink: 0;
+    }
+
+    .sum-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: #7890b0;
+    }
+
+    .sum-val {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      min-width: 28px;
+    }
+
+    .sum-val.warn { color: #f39c12; }
+    .sum-val.ok   { color: #2ecc71; }
+    .sum-val.danger { color: #e74c3c; }
+
+    /* ── Table area ── */
+    #table-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    #table-area::-webkit-scrollbar { width: 4px; }
+    #table-area::-webkit-scrollbar-track { background: transparent; }
+    #table-area::-webkit-scrollbar-thumb { background: #1e3158; border-radius: 2px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    thead th {
+      background: #1a2744;
+      color: #7890b0;
+      font-weight: 600;
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid #1e3158;
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #1a2a44;
+      transition: background 0.1s;
+    }
+
+    tbody tr:hover { background: rgba(74,143,232,0.06); cursor: pointer; }
+
+    tbody td { padding: 10px 12px; vertical-align: middle; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge-pending {
+      background: rgba(243,156,18,0.15);
+      color: #f39c12;
+      border: 1px solid rgba(243,156,18,0.3);
+    }
+
+    .badge-done {
+      background: rgba(46,204,113,0.15);
+      color: #2ecc71;
+      border: 1px solid rgba(46,204,113,0.3);
+    }
+
+    .badge-overdue {
+      background: rgba(231,76,60,0.15);
+      color: #e74c3c;
+      border: 1px solid rgba(231,76,60,0.3);
+    }
+
+    .wait { color: #7890b0; }
+    .wait.warn   { color: #f39c12; font-weight: 600; }
+    .wait.danger { color: #e74c3c; font-weight: 600; }
+
+    .btn-confirm {
+      background: #1a5c3a;
+      border: 1px solid #2a8c5a;
+      color: #2ecc71;
+      padding: 5px 12px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-confirm:hover { background: #1f7a4a; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: #1a2744;
+      border: 1px solid #1e3158;
+      border-radius: 10px;
+      width: 520px;
+      max-width: 92vw;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #1e3158;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .modal-header h3 { font-size: 14px; font-weight: 700; color: #fff; }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: #7890b0;
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .modal-close:hover { color: #fff; }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid #1e3158;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .info-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      align-items: baseline;
+    }
+
+    .info-label {
+      color: #7890b0;
+      width: 72px;
+      flex-shrink: 0;
+    }
+
+    .info-value { color: #e0e0e0; flex: 1; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #1e3158;
+      margin: 16px 0;
+    }
+
+    .items-list {
+      border: 1px solid #1e3158;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .item-row {
+      display: flex;
+      align-items: center;
+      padding: 9px 12px;
+      border-bottom: 1px solid #1a2a44;
+      gap: 10px;
+      font-size: 12px;
+    }
+
+    .item-row:last-child { border-bottom: none; }
+
+    .item-icon {
+      width: 34px;
+      height: 34px;
+      background: #0f1624;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .item-name { color: #e0e0e0; margin-bottom: 2px; }
+    .item-sku  { color: #7890b0; font-size: 11px; }
+    .item-qty  { color: #fff; font-weight: 700; margin-left: auto; font-size: 13px; }
+
+    .form-label {
+      font-size: 12px;
+      color: #7890b0;
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .staff-select {
+      width: 100%;
+      background: #0f1624;
+      border: 1px solid #1e3158;
+      color: #e0e0e0;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .btn-primary {
+      background: #1a5c3a;
+      border: 1px solid #2a8c5a;
+      color: #2ecc71;
+      padding: 8px 22px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-primary:hover { background: #1f7a4a; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: #162035;
+      border: 1px solid #1e3158;
+      color: #7890b0;
+      padding: 8px 22px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-secondary:hover { background: #1a2744; color: #e0e0e0; }
+
+    /* ── Empty ── */
+    .empty-state {
+      text-align: center;
+      padding: 70px 20px;
+      color: #3a5070;
+    }
+
+    .empty-state .icon { font-size: 44px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: #1a5c3a;
+      border: 1px solid #2a8c5a;
+      color: #2ecc71;
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 200;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.error { background: #5c1a1a; border-color: #8c2a2a; color: #e74c3c; }
+  </style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <div class="toolbar-title">🏪 到店取</div>
+
+  <div class="status-tabs">
+    <button class="status-tab active" data-status="pending">
+      待取貨 <span class="tab-count" id="cntPending">0</span>
+    </button>
+    <button class="status-tab" data-status="done">已完成</button>
+    <button class="status-tab" data-status="all">全部</button>
+  </div>
+
+  <select class="store-select" id="storeSelect">
+    <option value="all">全部網店</option>
+    <option value="ricoutlet">Ricoutlet</option>
+    <option value="hape">Hape HK</option>
+  </select>
+
+  <div class="search-box">
+    <span style="color:#3a5070">🔍</span>
+    <input type="text" id="searchInput" placeholder="搜尋訂單號 / 客戶名...">
+  </div>
+
+  <button class="btn-refresh" id="btnRefresh">↻ 更新</button>
+</div>
+
+<!-- Summary -->
+<div id="summary">
+  <div class="sum-item">
+    <div>
+      <div class="sum-val warn" id="sumPending">—</div>
+      <div>待取貨</div>
+    </div>
+  </div>
+  <div class="sum-item">
+    <div>
+      <div class="sum-val ok" id="sumDone">—</div>
+      <div>今日完成</div>
+    </div>
+  </div>
+  <div class="sum-item">
+    <div>
+      <div class="sum-val danger" id="sumOverdue">—</div>
+      <div>超時 &gt;24h</div>
+    </div>
+  </div>
+</div>
+
+<!-- Table -->
+<div id="table-area">
+  <table id="ordersTable">
+    <thead>
+      <tr>
+        <th>訂單號</th>
+        <th>客戶</th>
+        <th>商品</th>
+        <th>網店</th>
+        <th>下單時間</th>
+        <th>等待</th>
+        <th>狀態</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="ordersBody"></tbody>
+  </table>
+  <div id="emptyState" class="empty-state" style="display:none">
+    <div class="icon">🏪</div>
+    <p>暫無到店取訂單</p>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">✅ 確認客戶取貨</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal()">關閉</button>
+      <button class="btn-primary" id="btnConfirmPickup">確認取貨</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── Mock data（接通 DB.getOrders() 後移除）──────────────────
+const MOCK_ORDERS = [
+  {
+    id: '#10045', shopifyId: '10045',
+    customer: { name: '陳大文', phone: '9123 4567' },
+    items: [
+      { sku: 'HAP-001', name: 'Hape 木製火車', qty: 1 },
+      { sku: 'HAP-015', name: 'Hape 積木套裝', qty: 2 }
+    ],
+    store: 'hape', storeName: 'Hape HK',
+    createdAt: new Date(Date.now() - 1.5 * 3600000).toISOString(),
+    status: 'pending_pickup',
+    note: '請致電通知客人'
+  },
+  {
+    id: '#10046', shopifyId: '10046',
+    customer: { name: '李小明', phone: '9876 5432' },
+    items: [
+      { sku: 'RIC-088', name: 'Ricoutlet 玩具組合', qty: 1 }
+    ],
+    store: 'ricoutlet', storeName: 'Ricoutlet',
+    createdAt: new Date(Date.now() - 26 * 3600000).toISOString(),
+    status: 'pending_pickup',
+    note: ''
+  },
+  {
+    id: '#10040', shopifyId: '10040',
+    customer: { name: '王美麗', phone: '6543 2100' },
+    items: [
+      { sku: 'HAP-033', name: 'Hape 廚房玩具', qty: 1 }
+    ],
+    store: 'hape', storeName: 'Hape HK',
+    createdAt: new Date(Date.now() - 48 * 3600000).toISOString(),
+    status: 'fulfilled',
+    fulfilledBy: '小明',
+    fulfilledAt: new Date(Date.now() - 45 * 3600000).toISOString(),
+    note: ''
+  }
+]
+
+const STAFF_LIST = ['小明', '小花', '阿偉', '阿珊']
+
+// ── State ────────────────────────────────────────────────────
+let allOrders    = []
+let curStatus    = 'pending'
+let curStore     = 'all'
+let selectedOrder = null
+
+// ── Init ─────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  loadOrders()
+
+  document.querySelectorAll('.status-tab').forEach(btn =>
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.status-tab').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      curStatus = btn.dataset.status
+      renderTable()
+    })
+  )
+
+  document.getElementById('storeSelect').addEventListener('change', e => {
+    curStore = e.target.value
+    renderTable()
+  })
+
+  document.getElementById('searchInput').addEventListener('input', renderTable)
+  document.getElementById('btnRefresh').addEventListener('click', loadOrders)
+})
+
+// ── Load ─────────────────────────────────────────────────────
+async function loadOrders() {
+  const btn = document.getElementById('btnRefresh')
+  btn.textContent = '↻ 載入中...'
+  btn.disabled = true
+  try {
+    // TODO: allOrders = await DB.getOrders('all', '')
+    allOrders = MOCK_ORDERS
+    renderTable()
+    updateSummary()
+  } catch(e) {
+    showToast('載入失敗，請重試', 'error')
+  } finally {
+    btn.textContent = '↻ 更新'
+    btn.disabled = false
+  }
+}
+
+// ── Render ───────────────────────────────────────────────────
+function renderTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase()
+
+  const list = allOrders.filter(o => {
+    const ms =
+      curStatus === 'all'     ? true :
+      curStatus === 'pending' ? o.status === 'pending_pickup' :
+                                o.status === 'fulfilled'
+    const mv = curStore === 'all' || o.store === curStore
+    const mq = !q || o.id.toLowerCase().includes(q) || o.customer.name.toLowerCase().includes(q)
+    return ms && mv && mq
+  })
+
+  const tbody = document.getElementById('ordersBody')
+  const empty = document.getElementById('emptyState')
+
+  if (!list.length) {
+    tbody.innerHTML = ''
+    empty.style.display = 'block'
+    return
+  }
+  empty.style.display = 'none'
+
+  tbody.innerHTML = list.map(o => {
+    const w = waitInfo(o.createdAt)
+    const itemLine = o.items.length === 1
+      ? o.items[0].name
+      : `${o.items[0].name} 等 ${o.items.length} 件`
+
+    const badge =
+      o.status === 'fulfilled'
+        ? `<span class="badge badge-done">✓ 已完成</span>`
+        : w.h >= 24
+          ? `<span class="badge badge-overdue">⚠ 超時</span>`
+          : `<span class="badge badge-pending">⏳ 待取貨</span>`
+
+    const action =
+      o.status === 'pending_pickup'
+        ? `<button class="btn-confirm" onclick="event.stopPropagation();openModal('${o.id}')">✓ 確認取貨</button>`
+        : `<span style="color:#3a5070;font-size:11px">已由 ${o.fulfilledBy || '—'} 確認</span>`
+
+    return `
+      <tr onclick="openModal('${o.id}')">
+        <td><strong style="color:#7ab0ff">${o.id}</strong></td>
+        <td>
+          <div>${o.customer.name}</div>
+          <div style="color:#7890b0;font-size:11px">${o.customer.phone}</div>
+        </td>
+        <td>
+          <div style="color:#c0cfe0">${itemLine}</div>
+          <div style="color:#7890b0;font-size:11px">${o.items.length} 件商品</div>
+        </td>
+        <td style="color:#7890b0">${o.storeName}</td>
+        <td style="color:#7890b0">${fmtDate(o.createdAt)}</td>
+        <td class="wait ${o.status==='fulfilled'?'':w.cls}">${o.status==='fulfilled'?'—':w.label}</td>
+        <td>${badge}</td>
+        <td onclick="event.stopPropagation()">${action}</td>
+      </tr>`
+  }).join('')
+}
+
+// ── Summary ──────────────────────────────────────────────────
+function updateSummary() {
+  const pending = allOrders.filter(o => o.status === 'pending_pickup')
+  const todayDone = allOrders.filter(o => {
+    if (o.status !== 'fulfilled' || !o.fulfilledAt) return false
+    const d = new Date(o.fulfilledAt), t = new Date()
+    return d.toDateString() === t.toDateString()
+  })
+  const overdue = pending.filter(o => waitInfo(o.createdAt).h >= 24)
+
+  document.getElementById('sumPending').textContent  = pending.length
+  document.getElementById('sumDone').textContent     = todayDone.length
+  document.getElementById('sumOverdue').textContent  = overdue.length
+  document.getElementById('cntPending').textContent  = pending.length
+
+  // badge → parent
+  window.parent.postMessage({ type: 'badge', key: 'pickup', count: pending.length }, '*')
+}
+
+// ── Modal ────────────────────────────────────────────────────
+function openModal(orderId) {
+  selectedOrder = allOrders.find(o => o.id === orderId)
+  if (!selectedOrder) return
+  const o = selectedOrder
+  const w = waitInfo(o.createdAt)
+  const isDone = o.status === 'fulfilled'
+
+  document.getElementById('modalTitle').textContent = isDone ? '📋 訂單詳情' : '✅ 確認客戶取貨'
+
+  document.getElementById('modalBody').innerHTML = `
+    <div class="info-row">
+      <span class="info-label">訂單號</span>
+      <span class="info-value" style="color:#7ab0ff;font-weight:700">${o.id}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">客戶</span>
+      <span class="info-value">${o.customer.name}&nbsp;&nbsp;${o.customer.phone}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">網店</span>
+      <span class="info-value">${o.storeName}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">下單時間</span>
+      <span class="info-value">
+        ${fmtDate(o.createdAt)}
+        ${!isDone ? `<span class="wait ${w.cls}" style="margin-left:8px">（等待 ${w.label}）</span>` : ''}
+      </span>
+    </div>
+    ${o.note ? `
+    <div class="info-row">
+      <span class="info-label">備註</span>
+      <span class="info-value" style="color:#f39c12">${o.note}</span>
+    </div>` : ''}
+    <hr class="divider">
+    <div style="font-size:12px;color:#7890b0;margin-bottom:10px">商品明細</div>
+    <div class="items-list">
+      ${o.items.map(item => `
+        <div class="item-row">
+          <div class="item-icon">📦</div>
+          <div style="flex:1">
+            <div class="item-name">${item.name}</div>
+            <div class="item-sku">${item.sku}</div>
+          </div>
+          <div class="item-qty">× ${item.qty}</div>
+        </div>`).join('')}
+    </div>
+    <hr class="divider">
+    ${isDone
+      ? `<div style="font-size:12px;color:#2ecc71;padding:4px 0">
+           ✓ 已由 <strong>${o.fulfilledBy}</strong> 確認取貨 &nbsp;·&nbsp; ${fmtDate(o.fulfilledAt)}
+         </div>`
+      : `<label class="form-label">確認店員</label>
+         <select class="staff-select" id="staffSelect">
+           <option value="">— 請選擇店員 —</option>
+           ${STAFF_LIST.map(s => `<option value="${s}">${s}</option>`).join('')}
+         </select>`
+    }
+  `
+
+  const confirmBtn = document.getElementById('btnConfirmPickup')
+  if (isDone) {
+    confirmBtn.style.display = 'none'
+  } else {
+    confirmBtn.style.display = 'inline-block'
+    confirmBtn.textContent = '確認取貨'
+    confirmBtn.disabled = false
+    confirmBtn.onclick = doConfirm
+  }
+
+  document.getElementById('confirmModal').classList.add('open')
+}
+
+function closeModal() {
+  document.getElementById('confirmModal').classList.remove('open')
+  selectedOrder = null
+}
+
+// ── Confirm action ───────────────────────────────────────────
+async function doConfirm() {
+  const staff = document.getElementById('staffSelect')?.value
+  if (!staff) { showToast('請選擇確認店員', 'error'); return }
+
+  const btn = document.getElementById('btnConfirmPickup')
+  btn.textContent = '處理中...'
+  btn.disabled = true
+
+  try {
+    // TODO: await DB.confirmPickup(selectedOrder.shopifyId, staff)
+
+    // mock update
+    const idx = allOrders.findIndex(o => o.id === selectedOrder.id)
+    if (idx > -1) {
+      allOrders[idx].status      = 'fulfilled'
+      allOrders[idx].fulfilledBy = staff
+      allOrders[idx].fulfilledAt = new Date().toISOString()
+    }
+
+    const id = selectedOrder.id
+    closeModal()
+    renderTable()
+    updateSummary()
+    showToast(`✓ 訂單 ${id} 已確認取貨`)
+  } catch(e) {
+    showToast('操作失敗，請重試', 'error')
+    btn.textContent = '確認取貨'
+    btn.disabled = false
+  }
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+function waitInfo(iso) {
+  const h = (Date.now() - new Date(iso).getTime()) / 3600000
+  const cls = h >= 24 ? 'danger' : h >= 8 ? 'warn' : ''
+  const label = h >= 24
+    ? `${Math.floor(h/24)}日${Math.floor(h%24)}時`
+    : h >= 1
+      ? `${Math.floor(h)}時${Math.floor((h%1)*60)}分`
+      : `${Math.floor(h*60)}分`
+  return { h, cls, label }
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
+function showToast(msg, type = 'ok') {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.className = type === 'error' ? 'error' : ''
+  t.classList.add('show')
+  setTimeout(() => t.classList.remove('show'), 3000)
+}
+</script>
+
+</body>
+</html>
