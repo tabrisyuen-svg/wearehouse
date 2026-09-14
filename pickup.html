@@ -809,11 +809,16 @@ async function doConfirm() {
   const btn = document.getElementById('btnConfirmPickup')
   btn.textContent = '處理中...'; btn.disabled = true
   try {
-    await DB.confirmPickup(
-      selectedOrder.shopifyId,
-      staff,
-      selectedOrder.store === 'hape' ? 'eurekakids' : selectedOrder.store
-    )
+    const storeKey = selectedOrder.store === 'hape' ? 'eurekakids' : selectedOrder.store
+    console.log('confirmPickup:', selectedOrder.shopifyId, staff, storeKey)
+
+    const result = await DB.confirmPickup(selectedOrder.shopifyId, staff, storeKey)
+    console.log('result:', JSON.stringify(result))
+
+    if (result?.errors || result?.error) {
+      throw new Error(JSON.stringify(result.errors || result.error))
+    }
+
     const idx = allOrders.findIndex(o => o.id === selectedOrder.id)
     if (idx > -1) {
       allOrders[idx].status      = 'fulfilled'
@@ -824,8 +829,8 @@ async function doConfirm() {
     closeModal(); renderTable(); updateSummary()
     showToast(`✓ 訂單 ${id} 已確認取貨`, 'success')
   } catch(e) {
-    console.error(e)
-    showToast('操作失敗，請重試', 'error')
+    console.error('doConfirm error:', e)
+    showToast(`失敗：${e.message}`, 'error')
     btn.textContent = '確認取貨'; btn.disabled = false
   }
 }
