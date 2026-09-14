@@ -432,11 +432,18 @@ function mapShopifyOrder(o, storeKey) {
     id: o.name,
     shopifyId: String(o.id),
     customer: {
-      name: o.shipping_address
-        ? `${o.shipping_address.first_name || ''}${o.shipping_address.last_name || ''}`.trim()
-        : o.customer
-          ? `${o.customer.first_name || ''}${o.customer.last_name || ''}`.trim()
-          : '—',
+name: (() => {
+  const sa = o.shipping_address
+  if (sa) {
+    const full = `${sa.first_name || ''} ${sa.last_name || ''}`.trim()
+    return full || sa.name || '—'
+  }
+  if (o.customer) {
+    const full = `${o.customer.first_name || ''} ${o.customer.last_name || ''}`.trim()
+    return full || o.customer.name || '—'
+  }
+  return '—'
+})(),
       phone: addr.phone || o.customer?.phone || '—',
       address: addrLine || '—',
       address1: addr.address1 || '',
