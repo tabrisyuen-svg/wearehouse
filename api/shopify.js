@@ -21,7 +21,7 @@ async function getAccessToken(storeKey) {
 
   const cached = tokenCache[storeKey];
   const now = Date.now();
-
+  
   if (cached && cached.expiresAt > now + 5 * 60 * 1000) {
     return cached.token;
   }
