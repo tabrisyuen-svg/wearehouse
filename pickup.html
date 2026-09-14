@@ -18,7 +18,6 @@
       font-size: 13px;
     }
 
-    /* ── Toolbar ── */
     #toolbar {
       background: #fff;
       border-bottom: 1px solid #dde3ed;
@@ -38,7 +37,6 @@
       margin-right: 4px;
     }
 
-    /* Status tabs */
     .status-tabs {
       display: flex;
       gap: 3px;
@@ -83,7 +81,6 @@
       line-height: 14px;
     }
 
-    /* Store select */
     .store-select {
       background: #fff;
       border: 1px solid #dde3ed;
@@ -95,7 +92,6 @@
       outline: none;
     }
 
-    /* Search */
     .search-box {
       display: flex;
       align-items: center;
@@ -120,7 +116,6 @@
 
     .search-box input::placeholder { color: #aab4c8; }
 
-    /* Refresh btn */
     .btn-refresh {
       background: #1a2744;
       border: none;
@@ -141,7 +136,6 @@
     .btn-refresh:hover { background: #243460; }
     .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* ── Summary bar ── */
     #summary {
       background: #fff;
       border-bottom: 1px solid #dde3ed;
@@ -182,7 +176,6 @@
       background: #dde3ed;
     }
 
-    /* ── Table area ── */
     #table-area {
       flex: 1;
       overflow-y: auto;
@@ -227,7 +220,6 @@
 
     tbody td { padding: 10px 14px; vertical-align: middle; }
 
-    /* Badges */
     .badge {
       display: inline-flex;
       align-items: center;
@@ -257,19 +249,16 @@
       border: 1px solid #f5b7b1;
     }
 
-    /* Order ID */
     .order-id {
       color: #2563eb;
       font-weight: 700;
       font-size: 12px;
     }
 
-    /* Wait time */
     .wait { color: #6b7a99; }
     .wait.warn   { color: #e67e22; font-weight: 600; }
     .wait.danger { color: #e74c3c; font-weight: 600; }
 
-    /* Store tag */
     .store-tag {
       display: inline-block;
       padding: 2px 8px;
@@ -280,7 +269,6 @@
       color: #3b5bdb;
     }
 
-    /* Confirm button */
     .btn-confirm {
       background: #eafaf1;
       border: 1px solid #a9dfbf;
@@ -296,7 +284,6 @@
 
     .btn-confirm:hover { background: #d5f5e3; }
 
-    /* ── Modal ── */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -464,7 +451,6 @@
 
     .btn-secondary:hover { background: #f5f7fb; color: #1a2744; }
 
-    /* ── Empty state ── */
     .empty-state {
       text-align: center;
       padding: 70px 20px;
@@ -474,7 +460,6 @@
     .empty-state .icon { font-size: 44px; margin-bottom: 12px; }
     .empty-state p { font-size: 14px; }
 
-    /* ── Note box ── */
     .note-box {
       background: #fffbee;
       border: 1px solid #f5d48a;
@@ -484,7 +469,6 @@
       color: #a07000;
     }
 
-    /* ── Success banner in modal ── */
     .success-banner {
       background: #eafaf1;
       border: 1px solid #a9dfbf;
@@ -495,7 +479,6 @@
       font-weight: 600;
     }
 
-    /* ── Toast ── */
     #toast {
       position: fixed;
       bottom: 24px;
@@ -522,10 +505,8 @@
 </head>
 <body>
 
-<!-- Toolbar -->
 <div id="toolbar">
   <div class="toolbar-title">🏪 到店取</div>
-
   <div class="status-tabs">
     <button class="status-tab active" data-status="pending">
       待取貨 <span class="tab-count" id="cntPending">0</span>
@@ -533,22 +514,18 @@
     <button class="status-tab" data-status="done">已完成</button>
     <button class="status-tab" data-status="all">全部</button>
   </div>
-
   <select class="store-select" id="storeSelect">
     <option value="all">全部網店</option>
     <option value="ricoutlet">Ricoutlet</option>
     <option value="hape">Hape HK</option>
   </select>
-
   <div class="search-box">
     <span style="color:#aab4c8">🔍</span>
     <input type="text" id="searchInput" placeholder="搜尋訂單號 / 客戶名...">
   </div>
-
   <button class="btn-refresh" id="btnRefresh">↻ 更新</button>
 </div>
 
-<!-- Summary bar -->
 <div id="summary">
   <div class="sum-item">
     <div class="sum-val warn" id="sumPending">—</div>
@@ -566,7 +543,6 @@
   </div>
 </div>
 
-<!-- Table -->
 <div id="table-area">
   <table id="ordersTable">
     <thead>
@@ -589,7 +565,6 @@
   </div>
 </div>
 
-<!-- Confirm Modal -->
 <div class="modal-overlay" id="confirmModal">
   <div class="modal">
     <div class="modal-header">
@@ -604,43 +579,47 @@
   </div>
 </div>
 
-<!-- Toast -->
 <div id="toast"></div>
 
+<script src="db.js"></script>
 <script>
-// ── Mock data ─────────────────────────────────────────────────
-const MOCK_ORDERS = [
-  {
-    id: '#10045', shopifyId: '10045',
-    customer: { name: '陳大文', phone: '9123 4567' },
-    items: [
-      { sku: 'HAP-001', name: 'Hape 木製火車', qty: 1 },
-      { sku: 'HAP-015', name: 'Hape 積木套裝', qty: 2 }
-    ],
-    store: 'hape', storeName: 'Hape HK',
-    createdAt: new Date(Date.now() - 1.5 * 3600000).toISOString(),
-    status: 'pending_pickup', note: '請致電通知客人'
-  },
-  {
-    id: '#10046', shopifyId: '10046',
-    customer: { name: '李小明', phone: '9876 5432' },
-    items: [{ sku: 'RIC-088', name: 'Ricoutlet 玩具組合', qty: 1 }],
-    store: 'ricoutlet', storeName: 'Ricoutlet',
-    createdAt: new Date(Date.now() - 26 * 3600000).toISOString(),
-    status: 'pending_pickup', note: ''
-  },
-  {
-    id: '#10040', shopifyId: '10040',
-    customer: { name: '王美麗', phone: '6543 2100' },
-    items: [{ sku: 'HAP-033', name: 'Hape 廚房玩具', qty: 1 }],
-    store: 'hape', storeName: 'Hape HK',
-    createdAt: new Date(Date.now() - 48 * 3600000).toISOString(),
-    status: 'fulfilled', fulfilledBy: '小明',
-    fulfilledAt: new Date(Date.now() - 45 * 3600000).toISOString(), note: ''
-  }
-]
 
+// ── Config ────────────────────────────────────────────────────
 const STAFF_LIST = ['小明', '小花', '阿偉', '阿珊']
+
+const STORE_MAP = {
+  eurekakids: { key: 'hape', name: 'Hape HK' },
+  ricoutlet:  { key: 'ricoutlet', name: 'Ricoutlet' }
+}
+
+// ── Shopify → UI 格式轉換 ──────────────────────────────────────
+function mapShopifyOrder(o, storeKey) {
+  const store = STORE_MAP[storeKey] || { key: storeKey, name: storeKey }
+  const status = o.fulfillment_status === 'fulfilled' ? 'fulfilled' : 'pending_pickup'
+  const fulfillment = o.fulfillments?.[0]
+  return {
+    id: o.name,
+    shopifyId: String(o.id),
+    customer: {
+      name: o.customer
+        ? `${o.customer.first_name || ''}${o.customer.last_name || ''}`.trim() || '—'
+        : '—',
+      phone: o.billing_address?.phone || o.customer?.phone || '—'
+    },
+    items: (o.line_items || []).map(i => ({
+      sku: i.sku || '—',
+      name: i.title || i.name,
+      qty: i.quantity
+    })),
+    store: store.key,
+    storeName: store.name,
+    createdAt: o.created_at,
+    status,
+    note: o.note || '',
+    fulfilledBy: '—',
+    fulfilledAt: fulfillment?.created_at || null
+  }
+}
 
 // ── State ─────────────────────────────────────────────────────
 let allOrders = [], curStatus = 'pending', curStore = 'all', selectedOrder = null
@@ -666,18 +645,30 @@ async function loadOrders() {
   const btn = document.getElementById('btnRefresh')
   btn.textContent = '↻ 載入中...'; btn.disabled = true
   try {
-    // TODO: allOrders = await DB.getOrders('all', '')
-    allOrders = MOCK_ORDERS
-    renderTable(); updateSummary()
-  } catch(e) { showToast('載入失敗，請重試', 'error') }
-  finally { btn.textContent = '↻ 更新'; btn.disabled = false }
+    const [ek, ric] = await Promise.all([
+      DB.getOrders('eurekakids', ''),
+      DB.getOrders('ricoutlet', '')
+    ])
+    const ekMapped  = (ek  || []).map(o => mapShopifyOrder(o, 'eurekakids'))
+    const ricMapped = (ric || []).map(o => mapShopifyOrder(o, 'ricoutlet'))
+    allOrders = [...ekMapped, ...ricMapped]
+    renderTable()
+    updateSummary()
+  } catch(e) {
+    console.error(e)
+    showToast('載入失敗，請重試', 'error')
+  } finally {
+    btn.textContent = '↻ 更新'; btn.disabled = false
+  }
 }
 
 // ── Render ────────────────────────────────────────────────────
 function renderTable() {
   const q = document.getElementById('searchInput').value.toLowerCase()
   const list = allOrders.filter(o => {
-    const ms = curStatus === 'all' ? true : curStatus === 'pending' ? o.status === 'pending_pickup' : o.status === 'fulfilled'
+    const ms = curStatus === 'all' ? true
+      : curStatus === 'pending' ? o.status === 'pending_pickup'
+      : o.status === 'fulfilled'
     const mv = curStore === 'all' || o.store === curStore
     const mq = !q || o.id.toLowerCase().includes(q) || o.customer.name.toLowerCase().includes(q)
     return ms && mv && mq
@@ -691,7 +682,9 @@ function renderTable() {
 
   tbody.innerHTML = list.map(o => {
     const w = waitInfo(o.createdAt)
-    const itemLine = o.items.length === 1 ? o.items[0].name : `${o.items[0].name} 等 ${o.items.length} 件`
+    const itemLine = o.items.length === 1
+      ? o.items[0].name
+      : `${o.items[0].name} 等 ${o.items.length} 件`
     const badge = o.status === 'fulfilled'
       ? `<span class="badge badge-done">✓ 已完成</span>`
       : w.h >= 24
@@ -723,7 +716,7 @@ function renderTable() {
 
 // ── Summary ───────────────────────────────────────────────────
 function updateSummary() {
-  const pending  = allOrders.filter(o => o.status === 'pending_pickup')
+  const pending   = allOrders.filter(o => o.status === 'pending_pickup')
   const todayDone = allOrders.filter(o => {
     if (o.status !== 'fulfilled' || !o.fulfilledAt) return false
     return new Date(o.fulfilledAt).toDateString() === new Date().toDateString()
@@ -787,7 +780,7 @@ function openModal(orderId) {
       ? `<div class="success-banner">✓ 已由 <strong>${o.fulfilledBy}</strong> 確認取貨&nbsp;&nbsp;·&nbsp;&nbsp;${fmtDate(o.fulfilledAt)}</div>`
       : `<label class="form-label">確認店員</label>
          <select class="staff-select" id="staffSelect">
-           <option value="">— 請選擇店員 —</option>
+           <option value="">— 請選擇店員 —</option>AccessToken
            ${STAFF_LIST.map(s => `<option value="${s}">${s}</option>`).join('')}
          </select>`
     }
@@ -816,7 +809,11 @@ async function doConfirm() {
   const btn = document.getElementById('btnConfirmPickup')
   btn.textContent = '處理中...'; btn.disabled = true
   try {
-    // TODO: await DB.confirmPickup(selectedOrder.shopifyId, staff)
+    await DB.confirmPickup(
+      selectedOrder.shopifyId,
+      staff,
+      selectedOrder.store === 'hape' ? 'eurekakids' : selectedOrder.store
+    )
     const idx = allOrders.findIndex(o => o.id === selectedOrder.id)
     if (idx > -1) {
       allOrders[idx].status      = 'fulfilled'
@@ -827,6 +824,7 @@ async function doConfirm() {
     closeModal(); renderTable(); updateSummary()
     showToast(`✓ 訂單 ${id} 已確認取貨`, 'success')
   } catch(e) {
+    console.error(e)
     showToast('操作失敗，請重試', 'error')
     btn.textContent = '確認取貨'; btn.disabled = false
   }
@@ -856,7 +854,7 @@ function showToast(msg, type = '') {
   t.classList.add('show')
   setTimeout(() => t.classList.remove('show'), 3000)
 }
-</script>
 
+</script>
 </body>
 </html>
