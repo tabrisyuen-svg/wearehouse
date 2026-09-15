@@ -18,6 +18,7 @@ module.exports = async (req, res) => {
     if (topic === 'orders/create') {
       customerData = {
         id: body.customer?.id,
+        order_id: body.name,  
         email: body.email || body.contact_email,
         first_name: body.shipping_address?.first_name || body.billing_address?.first_name,
         last_name: body.shipping_address?.last_name || body.billing_address?.last_name,
