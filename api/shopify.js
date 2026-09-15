@@ -44,7 +44,18 @@ module.exports = async (req, res) => {
 
     const data = await shopifyRes.json()
     console.log(`[shopify] ${method} ${endpoint} →`, shopifyRes.status, JSON.stringify(data).slice(0, 300))
-    return res.status(shopifyRes.status).json(data)
+
+    // ✅ 新增：Shopify 錯誤包裝成 200
+    if (!shopifyRes.ok) {
+      console.error(`[shopify] ${store} ${shopifyRes.status}:`, data)
+      return res.status(200).json({
+        error: true,
+        shopifyStatus: shopifyRes.status,
+        message: data?.errors || `Shopify error ${shopifyRes.status}`
+      })
+    }
+
+    return res.status(200).json(data)  // ✅ 成功也回 200
 
   } catch (err) {
     console.error('[shopify error]', err.message)
