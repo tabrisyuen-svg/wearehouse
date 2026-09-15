@@ -606,25 +606,25 @@ async function loadOrders() {
       DB.getOrders('ricoutlet', ''),
       loadCustomers()
     ])
-    const ekMapped  = (ek  || []).map(o => mapShopifyOrder(o, 'eurekakids'))
-    const ricMapped = (ric || []).map(o => mapShopifyOrder(o, 'ricoutlet'))
+const ekMapped  = (ek  || []).map(o => mapShopifyOrder(o, 'eurekakids'))
+const ricMapped = (ric || []).map(o => mapShopifyOrder(o, 'ricoutlet'))
 
-    allOrders = [...ekMapped, ...ricMapped].filter(o => !o.isPickup)  // 
-      const c = customers[o.id]
-      if (c) {
-        const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim()
-        if (fullName) o.customer.name = fullName
-        if (c.phone)  o.customer.phone = c.phone
-        if (c.address1) {
-          o.customer.address1  = c.address1
-          o.customer.city      = c.city
-          o.customer.province  = c.province
-          o.customer.country   = c.country
-          o.customer.address   = [c.address1, c.city, c.province].filter(Boolean).join(', ')
-        }
-      }
-      return o
-    })
+allOrders = [...ekMapped, ...ricMapped].map(o => {
+  const c = customers[o.id]
+  if (c) {
+    const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim()
+    if (fullName) o.customer.name = fullName
+    if (c.phone)  o.customer.phone = c.phone
+    if (c.address1) {
+      o.customer.address1  = c.address1
+      o.customer.city      = c.city
+      o.customer.province  = c.province
+      o.customer.country   = c.country
+      o.customer.address   = [c.address1, c.city, c.province].filter(Boolean).join(', ')
+    }
+  }
+  return o
+}).filter(o => !o.isPickup)  // 
 
     renderTable()
     updateSummary()
