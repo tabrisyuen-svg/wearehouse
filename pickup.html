@@ -629,6 +629,15 @@ function mapShopifyOrder(o, storeKey) {
   const store = STORE_MAP[storeKey] || { key: storeKey, name: storeKey }
   const status = o.fulfillment_status === 'fulfilled' ? 'fulfilled' : 'pending_pickup'
   const fulfillment = o.fulfillments?.[0]
+
+    // ── 新增：判斷是否到店取 ──────────────────────────
+  const shippingTitle = (o.shipping_lines?.[0]?.title || '').toLowerCase()
+  const isPickup = !o.requires_shipping ||
+    shippingTitle.includes('pick') ||
+    shippingTitle.includes('自取') ||
+    shippingTitle.includes('到店')
+  // ───────────────────────────────────────────────────
+
   return {
     id: o.name,
     shopifyId: String(o.id),
@@ -649,7 +658,8 @@ function mapShopifyOrder(o, storeKey) {
     status,
     note: o.note || '',
     fulfilledBy: '—',
-    fulfilledAt: fulfillment?.created_at || null
+    fulfilledAt: fulfillment?.created_at || null,
+    isPickup   // 
   }
 }
 
@@ -685,7 +695,7 @@ async function loadOrders() {
     ])
     const ekMapped  = (ek  || []).map(o => mapShopifyOrder(o, 'eurekakids'))
     const ricMapped = (ric || []).map(o => mapShopifyOrder(o, 'ricoutlet'))
-    allOrders = [...ekMapped, ...ricMapped]
+    allOrders = [...ekMapped, ...ricMapped].filter(o => o.isPickup)  //
     renderTable()
     updateSummary()
   } catch(e) {
