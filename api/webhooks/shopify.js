@@ -1,5 +1,3 @@
-// api/webhooks/shopify.js
-
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNAlZrmbPHKywdIUB9Esur7j1cEqyZ3xhqCP0hNrYrwE1JM6ntG2qp409Ic-2m6MBTpw/exec'
 
 module.exports = async (req, res) => {
@@ -12,12 +10,12 @@ module.exports = async (req, res) => {
     }
 
     const topic = req.headers['x-shopify-topic']
-    console.log('[webhook]', topic)
+    const shop = req.headers['x-shopify-shop-domain']
+    console.log('[webhook]', topic, shop)
 
     let customerData = null
 
     if (topic === 'orders/create') {
-      // 從 Order 拿完整資料
       customerData = {
         id: body.customer?.id,
         email: body.email || body.contact_email,
@@ -28,9 +26,8 @@ module.exports = async (req, res) => {
         city: body.shipping_address?.city,
         province: body.shipping_address?.province,
         country: body.shipping_address?.country,
-        store: req.headers['x-shopify-shop-domain']
+        store: shop
       }
-
     } else if (topic === 'customers/create' || topic === 'customers/update') {
       customerData = {
         id: body.id,
@@ -42,18 +39,17 @@ module.exports = async (req, res) => {
         city: body.default_address?.city,
         province: body.default_address?.province,
         country: body.default_address?.country,
-        store: req.headers['x-shopify-shop-domain']
+        store: shop
       }
     }
 
     if (customerData?.id) {
-      // 存入 Google Sheet
-      const url = new URL(GOOGLE_SCRIPT_URL)
-      url.searchParams.set('action', 'upsertCustomer')
-      url.searchParams.set('data', JSON.stringify(customerData))
-      const r = await fetch(url.toString())
-      const result = await r.json()
-      console.log('[webhook] saved customer:', result)
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'upsertCustomer', data: customerData })
+      })
+      console.log('[webhook] customer saved:', customerData.id)
     }
 
     res.status(200).json({ ok: true })
