@@ -497,6 +497,9 @@ const STORE_MAP = {
 // ── Google Sheet Script URL ─────────────────────────────────────
 const SCRIPT_URL = '/api/sheets'
 
+// ── State ───────────────────────────────────────────────────────
+let allOrders = [], curStatus = 'pending', curStore = 'all', selectedOrder = null  //
+
 // ── 讀取客戶資料 ────────────────────────────────────────────────
 async function loadCustomers() {
   try {
