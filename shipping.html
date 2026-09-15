@@ -525,13 +525,17 @@ function mapShopifyOrder(o, storeKey) {
   const status = o.fulfillment_status === 'fulfilled' ? 'fulfilled' : 'pending'
   const fulfillment = o.fulfillments?.[0]
 
-  // ── 新增：判斷是否到店取 ──────────────────────────
+  // ── 地址 ──────────────────────────────────────────
+  const addr = o.shipping_address || o.billing_address || {}
+  const addrLine = [addr.address1, addr.address2, addr.city, addr.province]
+    .filter(Boolean).join(', ')
+
+  // ── 判斷是否到店取 ─────────────────────────────────
   const shippingTitle = (o.shipping_lines?.[0]?.title || '').toLowerCase()
   const isPickup = shippingTitle.includes('shop location') ||
     shippingTitle.includes('pick') ||
     shippingTitle.includes('自取') ||
     shippingTitle.includes('到店')
-  // ───────────────────────────────────────────────────
 
   return {
     id: o.name,
@@ -572,29 +576,9 @@ function mapShopifyOrder(o, storeKey) {
     tracking: fulfillment?.tracking_number || '',
     courier: fulfillment?.tracking_company || '',
     shippedAt: fulfillment?.created_at || null,
+    isPickup  // 
   }
 }
-
-// ── State ───────────────────────────────────────────────────────
-let allOrders = [], curStatus = 'pending', curStore = 'all', selectedOrder = null
-
-// ── Init ────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  loadOrders()
-  document.querySelectorAll('.status-tab').forEach(btn =>
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.status-tab').forEach(b => b.classList.remove('active'))
-      btn.classList.add('active')
-      curStatus = btn.dataset.status
-      renderTable()
-    })
-  )
-  document.getElementById('storeSelect').addEventListener('change', e => {
-    curStore = e.target.value; renderTable()
-  })
-  document.getElementById('searchInput').addEventListener('input', renderTable)
-  document.getElementById('btnRefresh').addEventListener('click', loadOrders)
-})
 
 // ── Load ────────────────────────────────────────────────────────
 async function loadOrders() {
