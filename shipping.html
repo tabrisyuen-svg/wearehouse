@@ -444,6 +444,7 @@
         <th>網店</th>
         <th>下單時間</th>
         <th>狀態</th>
+        <th>運單編號</th>
         <th>操作</th>
       </tr>
     </thead>
@@ -657,6 +658,19 @@ function renderTable() {
       ? `<span class="badge badge-done">✓ 已寄出</span>`
       : `<span class="badge badge-pending">⏳ 待寄出</span>`
 
+    // ── 新增：運單編號欄 ──────────────────────────────
+    const trackingCell = o.status === 'fulfilled'
+      ? `<span class="tracking-badge">🔍 ${o.tracking || '—'}</span>`
+      : `<input
+           class="inline-input"
+           id="tracking-col-${o.id}"
+           type="text"
+           placeholder="輸入追蹤編號"
+           onclick="event.stopPropagation()"
+           style="max-width:150px;font-size:11px"
+         >`
+    // ─────────────────────────────────────────────────
+
     const action = o.status === 'pending'
       ? `<button class="btn-ship" id="btn-ship-${o.id}"
            onclick="event.stopPropagation();toggleInline('${o.id}')">
@@ -679,11 +693,13 @@ function renderTable() {
         <td><span class="store-tag">${o.storeName}</span></td>
         <td style="color:#6b7a99">${fmtDate(o.createdAt)}</td>
         <td>${badge}</td>
+        <td onclick="event.stopPropagation()">${trackingCell}</td>
         <td onclick="event.stopPropagation()">${action}</td>
       </tr>`
   }).join('')
 }
 
+// ── Inline Ship ─────────────────────────────────────────────────
 // ── Inline Ship ─────────────────────────────────────────────────
 function toggleInline(orderId) {
   const existingRow = document.getElementById(`inline-row-${orderId}`)
@@ -704,7 +720,7 @@ function toggleInline(orderId) {
   inlineRow.id = `inline-row-${orderId}`
   inlineRow.className = 'inline-ship-row'
   inlineRow.innerHTML = `
-    <td colspan="8" style="padding:8px 14px">
+    <td colspan="9" style="padding:8px 14px">
       <div class="inline-ship-wrap">
         <span class="inline-label">追蹤編號</span>
         <input class="inline-input" id="inline-tracking-${orderId}"
@@ -737,20 +753,15 @@ function toggleInline(orderId) {
   const btn = document.getElementById(`btn-ship-${orderId}`)
   if (btn) { btn.textContent = '✕ 取消'; btn.classList.add('active') }
 
+  // ── 新增：自動帶入欄位已輸入的值 ──────────────────
+  const colVal = document.getElementById(`tracking-col-${orderId}`)?.value.trim()
+  if (colVal) {
+    document.getElementById(`inline-tracking-${orderId}`).value = colVal
+  }
+  // ───────────────────────────────────────────────────
+
   // 自動 focus
   document.getElementById(`inline-tracking-${orderId}`)?.focus()
-}
-
-async function doInlineShip(orderId) {
-  const trackingNumber = document.getElementById(`inline-tracking-${orderId}`)?.value.trim()
-  const courierValue   = document.getElementById(`inline-courier-${orderId}`)?.value
-
-  if (!trackingNumber) { showToast('請輸入追蹤編號', 'error'); return }
-
-  const confirmBtn = document.getElementById(`inline-confirm-${orderId}`)
-  if (confirmBtn) { confirmBtn.textContent = '處理中...'; confirmBtn.disabled = true }
-
-  await shipOrder(orderId, trackingNumber, courierValue)
 }
 
 // ── 共用寄出邏輯 ─────────────────────────────────────────────────
