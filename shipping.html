@@ -499,7 +499,8 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNAlZrmbPHKywdIUB9E
 // ── 讀取客戶資料 ────────────────────────────────────────────────
 async function loadCustomers() {
   try {
-    const res = await fetch(`${SCRIPT_URL}?sheet=EKK Online Customers Data`)
+    const res = await fetch(`${SCRIPT_URL}?sheet=${encodeURIComponent('EKK Online Customers Data')}`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     if (!data.ok || !data.rows || data.rows.length < 2) return {}
     const headers = data.rows[0]
