@@ -982,6 +982,22 @@ function showToast(msg, type = '') {
   setTimeout(() => t.classList.remove('show'), 3000)
 }
 
-</script>
+    // ── Init ────────────────────────────────────────────────────────
+    loadOrders()
+    document.querySelectorAll('.status-tab').forEach(btn =>
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.status-tab').forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+        curStatus = btn.dataset.status
+        renderTable()
+      })
+    )
+    document.getElementById('storeSelect').addEventListener('change', e => {
+      curStore = e.target.value; renderTable()
+    })
+    document.getElementById('searchInput').addEventListener('input', renderTable)
+    document.getElementById('btnRefresh').addEventListener('click', loadOrders)
+
+  </script>
 </body>
 </html>
