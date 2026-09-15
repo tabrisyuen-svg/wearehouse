@@ -1,3 +1,24 @@
+<!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║  寄單系統 - 技術架構說明                                      ║
+  ╠══════════════════════════════════════════════════════════════╣
+  ║  前端框架：Vanilla JS + HTML/CSS                              ║
+  ║  部署平台：Vercel                                             ║
+  ║                                                              ║
+  ║  訂單資料：Shopify Admin API                                  ║
+  ║  · 訂單列表 / 商品明細 / 履行狀態                             ║
+  ║  · 寄出操作 → Shopify Fulfillment API                        ║
+  ║                                                              ║
+  ║  客戶資料：Shopify Webhook + Google Sheet                     ║
+  ║  · Webhook 觸發：orders/create                               ║
+  ║                  customers/create                            ║
+  ║                  customers/update                            ║
+  ║  · Webhook 接收：api/webhooks/shopify.js (Vercel)            ║
+  ║  · 資料存入：Google Apps Script → Google Sheets              ║
+  ║  · Sheet 檔案：System Data                                   ║
+  ║  · Sheet Tab：EKK Online Customers Data                      ║
+  ╚══════════════════════════════════════════════════════════════╝
+-->
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
@@ -127,6 +148,59 @@
     tbody tr:hover { background: #f5f8ff; }
     tbody td { padding: 10px 14px; vertical-align: middle; }
 
+    /* ── Inline Ship Row ── */
+    tr.inline-ship-row { background: #f0f4ff !important; cursor: default; }
+    tr.inline-ship-row:hover { background: #f0f4ff !important; }
+
+    .inline-ship-wrap {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 0;
+    }
+
+    .inline-label {
+      font-size: 11px; color: #6b7a99;
+      white-space: nowrap; font-weight: 500;
+    }
+
+    .inline-input {
+      flex: 1; max-width: 200px;
+      padding: 7px 10px; border: 1px solid #c5d0fb;
+      border-radius: 6px; font-size: 12px; outline: none;
+      background: #fff; color: #1a2744;
+      transition: border-color 0.15s;
+    }
+
+    .inline-input:focus {
+      border-color: #3b5bdb;
+      box-shadow: 0 0 0 3px rgba(59,91,219,0.1);
+    }
+
+    .inline-input::placeholder { color: #aab4c8; }
+
+    .inline-select {
+      padding: 7px 10px; border: 1px solid #c5d0fb;
+      border-radius: 6px; font-size: 12px; outline: none;
+      background: #fff; color: #1a2744; cursor: pointer;
+    }
+
+    .inline-btn-confirm {
+      background: #3b5bdb; border: none; color: #fff;
+      padding: 7px 16px; border-radius: 6px; font-size: 12px;
+      font-weight: 600; cursor: pointer; white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    .inline-btn-confirm:hover { background: #2f4ac4; }
+    .inline-btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .inline-btn-cancel {
+      background: #fff; border: 1px solid #dde3ed; color: #6b7a99;
+      padding: 7px 12px; border-radius: 6px; font-size: 12px;
+      cursor: pointer; transition: all 0.15s;
+    }
+
+    .inline-btn-cancel:hover { background: #f5f7fb; color: #1a2744; }
+
     .badge {
       display: inline-flex; align-items: center; gap: 4px;
       padding: 3px 9px; border-radius: 10px; font-size: 11px;
@@ -151,6 +225,7 @@
     }
 
     .btn-ship:hover { background: #dde5ff; }
+    .btn-ship.active { background: #3b5bdb; color: #fff; border-color: #3b5bdb; }
 
     .addr-text {
       color: #6b7a99; font-size: 11px;
@@ -228,7 +303,6 @@
     .item-sku  { color: #6b7a99; font-size: 11px; }
     .item-qty  { color: #1a2744; font-weight: 700; margin-left: auto; font-size: 13px; }
 
-    /* ── Tracking Form ── */
     .tracking-grid {
       display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
       margin-top: 4px;
@@ -419,6 +493,30 @@ const STORE_MAP = {
   ricoutlet:  { key: 'ricoutlet', name: 'Ricoutlet' }
 }
 
+// ── Google Sheet Script URL ─────────────────────────────────────
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNAlZrmbPHKywdIUB9Esur7j1cEqyZ3xhqCP0hNrYrwE1JM6ntG2qp409Ic-2m6MBTpw/exec'
+
+// ── 讀取客戶資料 ────────────────────────────────────────────────
+async function loadCustomers() {
+  try {
+    const res = await fetch(`${SCRIPT_URL}?sheet=EKK Online Customers Data`)
+    const data = await res.json()
+    if (!data.ok || !data.rows || data.rows.length < 2) return {}
+    const headers = data.rows[0]
+    const map = {}
+    for (let i = 1; i < data.rows.length; i++) {
+      const row = data.rows[i]
+      const obj = {}
+      headers.forEach((h, idx) => obj[h] = row[idx])
+      if (obj.order_id) map[obj.order_id] = obj
+    }
+    return map
+  } catch(e) {
+    console.error('loadCustomers error:', e)
+    return {}
+  }
+}
+
 // ── Shopify → UI 格式轉換 ───────────────────────────────────────
 function mapShopifyOrder(o, storeKey) {
   const store = STORE_MAP[storeKey] || { key: storeKey, name: storeKey }
@@ -432,18 +530,18 @@ function mapShopifyOrder(o, storeKey) {
     id: o.name,
     shopifyId: String(o.id),
     customer: {
-name: (() => {
-  const sa = o.shipping_address
-  if (sa) {
-    const full = `${sa.first_name || ''} ${sa.last_name || ''}`.trim()
-    return full || sa.name || '—'
-  }
-  if (o.customer) {
-    const full = `${o.customer.first_name || ''} ${o.customer.last_name || ''}`.trim()
-    return full || o.customer.name || '—'
-  }
-  return '—'
-})(),
+      name: (() => {
+        const sa = o.shipping_address
+        if (sa) {
+          const full = `${sa.first_name || ''} ${sa.last_name || ''}`.trim()
+          return full || sa.name || '—'
+        }
+        if (o.customer) {
+          const full = `${o.customer.first_name || ''} ${o.customer.last_name || ''}`.trim()
+          return full || o.customer.name || '—'
+        }
+        return '—'
+      })(),
       phone: addr.phone || o.customer?.phone || '—',
       address: addrLine || '—',
       address1: addr.address1 || '',
@@ -496,13 +594,31 @@ async function loadOrders() {
   const btn = document.getElementById('btnRefresh')
   btn.textContent = '↻ 載入中...'; btn.disabled = true
   try {
-    const [ek, ric] = await Promise.all([
+    const [ek, ric, customers] = await Promise.all([
       DB.getOrders('eurekakids', ''),
-      DB.getOrders('ricoutlet', '')
+      DB.getOrders('ricoutlet', ''),
+      loadCustomers()
     ])
     const ekMapped  = (ek  || []).map(o => mapShopifyOrder(o, 'eurekakids'))
     const ricMapped = (ric || []).map(o => mapShopifyOrder(o, 'ricoutlet'))
-    allOrders = [...ekMapped, ...ricMapped]
+
+    allOrders = [...ekMapped, ...ricMapped].map(o => {
+      const c = customers[o.id]
+      if (c) {
+        const fullName = `${c.first_name || ''} ${c.last_name || ''}`.trim()
+        if (fullName) o.customer.name = fullName
+        if (c.phone)  o.customer.phone = c.phone
+        if (c.address1) {
+          o.customer.address1  = c.address1
+          o.customer.city      = c.city
+          o.customer.province  = c.province
+          o.customer.country   = c.country
+          o.customer.address   = [c.address1, c.city, c.province].filter(Boolean).join(', ')
+        }
+      }
+      return o
+    })
+
     renderTable()
     updateSummary()
   } catch(e) {
@@ -541,7 +657,10 @@ function renderTable() {
       : `<span class="badge badge-pending">⏳ 待寄出</span>`
 
     const action = o.status === 'pending'
-      ? `<button class="btn-ship" onclick="event.stopPropagation();openModal('${o.id}')">✈ 登記寄出</button>`
+      ? `<button class="btn-ship" id="btn-ship-${o.id}"
+           onclick="event.stopPropagation();toggleInline('${o.id}')">
+           ✈ 登記寄出
+         </button>`
       : `<span style="color:#aab4c8;font-size:11px">${o.tracking || '—'}</span>`
 
     return `
@@ -562,6 +681,144 @@ function renderTable() {
         <td onclick="event.stopPropagation()">${action}</td>
       </tr>`
   }).join('')
+}
+
+// ── Inline Ship ─────────────────────────────────────────────────
+function toggleInline(orderId) {
+  const existingRow = document.getElementById(`inline-row-${orderId}`)
+
+  // 已展開 → 收起
+  if (existingRow) {
+    existingRow.remove()
+    const btn = document.getElementById(`btn-ship-${orderId}`)
+    if (btn) { btn.textContent = '✈ 登記寄出'; btn.classList.remove('active') }
+    return
+  }
+
+  const courierOptions = COURIERS.map(c =>
+    `<option value="${c.value}" ${c.value === 'Other' ? 'selected' : ''}>${c.label}</option>`
+  ).join('')
+
+  const inlineRow = document.createElement('tr')
+  inlineRow.id = `inline-row-${orderId}`
+  inlineRow.className = 'inline-ship-row'
+  inlineRow.innerHTML = `
+    <td colspan="8" style="padding:8px 14px">
+      <div class="inline-ship-wrap">
+        <span class="inline-label">追蹤編號</span>
+        <input class="inline-input" id="inline-tracking-${orderId}"
+          type="text" placeholder="例：SF1234567890">
+        <select class="inline-select" id="inline-courier-${orderId}">
+          ${courierOptions}
+        </select>
+        <button class="inline-btn-confirm" id="inline-confirm-${orderId}"
+          onclick="doInlineShip('${orderId}')">
+          ✈ 確認寄出
+        </button>
+        <button class="inline-btn-cancel"
+          onclick="toggleInline('${orderId}')">
+          取消
+        </button>
+      </div>
+    </td>
+  `
+
+  // 找到對應行並插入其後
+  const allRows = document.querySelectorAll('#ordersBody tr')
+  for (const row of allRows) {
+    if (row.querySelector('.order-id')?.textContent === orderId) {
+      row.after(inlineRow)
+      break
+    }
+  }
+
+  // 更新按鈕狀態
+  const btn = document.getElementById(`btn-ship-${orderId}`)
+  if (btn) { btn.textContent = '✕ 取消'; btn.classList.add('active') }
+
+  // 自動 focus
+  document.getElementById(`inline-tracking-${orderId}`)?.focus()
+}
+
+async function doInlineShip(orderId) {
+  const trackingNumber = document.getElementById(`inline-tracking-${orderId}`)?.value.trim()
+  const courierValue   = document.getElementById(`inline-courier-${orderId}`)?.value
+
+  if (!trackingNumber) { showToast('請輸入追蹤編號', 'error'); return }
+
+  const confirmBtn = document.getElementById(`inline-confirm-${orderId}`)
+  if (confirmBtn) { confirmBtn.textContent = '處理中...'; confirmBtn.disabled = true }
+
+  await shipOrder(orderId, trackingNumber, courierValue)
+}
+
+// ── 共用寄出邏輯 ─────────────────────────────────────────────────
+async function shipOrder(orderId, trackingNumber, courierValue) {
+  const order = allOrders.find(o => o.id === orderId)
+  if (!order) return
+
+  try {
+    const storeKey = order.store === 'hape' ? 'eurekakids' : order.store
+
+    const foData = await DB._shopifyFetch(
+      storeKey,
+      `orders/${order.shopifyId}/fulfillment_orders.json`
+    )
+    const fulfillmentOrders = foData.fulfillment_orders || []
+    const openFO = fulfillmentOrders.find(fo =>
+      fo.status === 'open' || fo.status === 'in_progress'
+    )
+    if (!openFO) throw new Error('No open fulfillment order')
+
+    const result = await DB._shopifyFetch(storeKey, 'fulfillments.json', {
+      method: 'POST',
+      body: {
+        fulfillment: {
+          line_items_by_fulfillment_order: [
+            { fulfillment_order_id: openFO.id }
+          ],
+          tracking_info: {
+            number: trackingNumber,
+            company: courierValue || 'Other'
+          },
+          notify_customer: true
+        }
+      }
+    })
+
+    if (result?.errors || result?.error) {
+      throw new Error(JSON.stringify(result.errors || result.error))
+    }
+
+    // 更新本地狀態
+    const idx = allOrders.findIndex(o => o.id === orderId)
+    if (idx > -1) {
+      allOrders[idx].status    = 'fulfilled'
+      allOrders[idx].tracking  = trackingNumber
+      allOrders[idx].courier   = courierValue
+      allOrders[idx].shippedAt = new Date().toISOString()
+    }
+
+    // 關閉 inline row 或 modal
+    document.getElementById(`inline-row-${orderId}`)?.remove()
+    closeModal()
+
+    renderTable()
+    updateSummary()
+    showToast(`✓ 訂單 ${orderId} 已登記寄出`, 'success')
+
+  } catch(e) {
+    console.error('shipOrder error:', e)
+    showToast(`失敗：${e.message}`, 'error')
+
+    // 恢復 inline 按鈕
+    const confirmBtn = document.getElementById(`inline-confirm-${orderId}`)
+    if (confirmBtn) { confirmBtn.textContent = '✈ 確認寄出'; confirmBtn.disabled = false }
+
+    // 恢復 modal 按鈕
+    const shipBtn = document.getElementById('btnShip')
+    if (shipBtn) { shipBtn.textContent = '✈ 已寄出'; shipBtn.disabled = false }
+  }
 }
 
 // ── Summary ─────────────────────────────────────────────────────
@@ -593,11 +850,10 @@ function openModal(orderId) {
     .filter(Boolean).join('\n')
 
   const courierOptions = COURIERS.map(c =>
-    `<option value="${c.value}">${c.label}</option>`
+    `<option value="${c.value}" ${c.value === 'Other' ? 'selected' : ''}>${c.label}</option>`
   ).join('')
 
   document.getElementById('modalBody').innerHTML = `
-    <!-- 收件資料 -->
     <div class="section-title">收件資料</div>
     <div class="info-row">
       <span class="info-label">訂單號</span>
@@ -631,7 +887,6 @@ function openModal(orderId) {
 
     <hr class="divider">
 
-    <!-- 商品明細 -->
     <div class="section-title">商品明細</div>
     <div class="items-list">
       ${o.items.map(item => `
@@ -648,7 +903,6 @@ function openModal(orderId) {
     <hr class="divider">
 
     ${isDone ? `
-      <!-- 已寄出 -->
       <div class="success-banner">✓ 已寄出&nbsp;&nbsp;·&nbsp;&nbsp;${fmtDate(o.shippedAt)}</div>
       ${o.tracking ? `
       <div style="margin-top:10px">
@@ -665,7 +919,6 @@ function openModal(orderId) {
         </div>
       </div>` : ''}
     ` : `
-      <!-- 輸入運單資料 -->
       <div class="section-title">運單資料</div>
       <div class="tracking-grid">
         <div class="form-group">
@@ -693,7 +946,13 @@ function openModal(orderId) {
     shipBtn.style.display = 'inline-block'
     shipBtn.textContent = '✈ 已寄出'
     shipBtn.disabled = false
-    shipBtn.onclick = doShip
+    shipBtn.onclick = () => {
+      const trackingNumber = document.getElementById('trackingNumber')?.value.trim()
+      const courierValue   = document.getElementById('courierSelect')?.value
+      if (!trackingNumber) { showToast('請輸入追蹤編號', 'error'); return }
+      shipBtn.textContent = '處理中...'; shipBtn.disabled = true
+      shipOrder(o.id, trackingNumber, courierValue)
+    }
   }
 
   document.getElementById('shipModal').classList.add('open')
@@ -702,71 +961,6 @@ function openModal(orderId) {
 function closeModal() {
   document.getElementById('shipModal').classList.remove('open')
   selectedOrder = null
-}
-
-// ── Ship ────────────────────────────────────────────────────────
-async function doShip() {
-  const trackingNumber = document.getElementById('trackingNumber')?.value.trim()
-  const courierValue   = document.getElementById('courierSelect')?.value
-
-  if (!trackingNumber) { showToast('請輸入追蹤編號', 'error'); return }
-
-  const btn = document.getElementById('btnShip')
-  btn.textContent = '處理中...'; btn.disabled = true
-
-  try {
-    const storeKey = selectedOrder.store === 'hape' ? 'eurekakids' : selectedOrder.store
-
-    // 取得 fulfillment_order
-    const foData = await DB._shopifyFetch(
-      storeKey,
-      `orders/${selectedOrder.shopifyId}/fulfillment_orders.json`
-    )
-    const fulfillmentOrders = foData.fulfillment_orders || []
-    const openFO = fulfillmentOrders.find(fo =>
-      fo.status === 'open' || fo.status === 'in_progress'
-    )
-    if (!openFO) throw new Error('No open fulfillment order')
-
-    // 建立 fulfillment
-    const result = await DB._shopifyFetch(storeKey, 'fulfillments.json', {
-      method: 'POST',
-      body: {
-        fulfillment: {
-          line_items_by_fulfillment_order: [
-            { fulfillment_order_id: openFO.id }
-          ],
-          tracking_info: {
-            number: trackingNumber,
-            company: courierValue || 'Other'
-          },
-          notify_customer: true
-        }
-      }
-    })
-
-    if (result?.errors || result?.error) {
-      throw new Error(JSON.stringify(result.errors || result.error))
-    }
-
-    // 更新本地狀態
-    const idx = allOrders.findIndex(o => o.id === selectedOrder.id)
-    if (idx > -1) {
-      allOrders[idx].status    = 'fulfilled'
-      allOrders[idx].tracking  = trackingNumber
-      allOrders[idx].courier   = courierValue
-      allOrders[idx].shippedAt = new Date().toISOString()
-    }
-
-    const id = selectedOrder.id
-    closeModal(); renderTable(); updateSummary()
-    showToast(`✓ 訂單 ${id} 已登記寄出`, 'success')
-
-  } catch(e) {
-    console.error('doShip error:', e)
-    showToast(`失敗：${e.message}`, 'error')
-    btn.textContent = '✈ 已寄出'; btn.disabled = false
-  }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
