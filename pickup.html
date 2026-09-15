@@ -632,7 +632,7 @@ function mapShopifyOrder(o, storeKey) {
 
     // ── 新增：判斷是否到店取 ──────────────────────────
   const shippingTitle = (o.shipping_lines?.[0]?.title || '').toLowerCase()
-  const isPickup = !o.requires_shipping ||
+  const isPickup = shippingTitle.includes('shop location') ||
     shippingTitle.includes('pick') ||
     shippingTitle.includes('自取') ||
     shippingTitle.includes('到店')
