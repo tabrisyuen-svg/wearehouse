@@ -43,7 +43,7 @@ module.exports = async (req, res) => {
     })
 
     const data = await shopifyRes.json()
-    console.log(`[shopify] ${method} ${endpoint} →`, shopifyRes.status, JSON.stringify(data).slice(0, 300))
+    console.log(`[shopify] ${method} ${endpoint} →`, shopifyRes.status, JSON.stringify(data).slice(0, 2000))
 
     // ✅ 新增：Shopify 錯誤包裝成 200
     if (!shopifyRes.ok) {
